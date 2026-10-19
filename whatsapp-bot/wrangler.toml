@@ -1,0 +1,16 @@
+name = "mis-cuentas-whatsapp"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mis-cuentas"
+database_id = "PON_AQUI_EL_ID_DE_TU_D1"
+
+# Secretos (se cargan con `npx wrangler secret put NOMBRE`):
+# WHATSAPP_TOKEN    token de acceso de la app de Meta
+# WHATSAPP_PHONE_ID id del número en WhatsApp Cloud API
+# VERIFY_TOKEN      palabra secreta que tú inventas para verificar el webhook
+# APP_SECRET        "App secret" de la app de Meta (valida la firma de cada mensaje)
+# ANTHROPIC_API_KEY clave de la API de Claude
+# ALLOWED_NUMBERS   números que pueden usar el bot, separados por coma (ej. 573001234567)
