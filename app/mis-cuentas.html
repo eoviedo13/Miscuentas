@@ -175,6 +175,18 @@ button:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px sol
       <div id="budgets"></div>
     </section>
     <section class="card">
+      <div class="ch"><h3>Fijos del mes</h3><button class="chip" id="addFijo" type="button">+ Agregar</button></div>
+      <form class="bform" id="fform" hidden>
+        <input id="fdesc" autocomplete="off" maxlength="40" placeholder="Ej.: Arriendo" aria-label="Descripción" style="grid-column:1/-1;font-family:var(--body)">
+        <input id="fmonto" inputmode="numeric" autocomplete="off" placeholder="Monto" aria-label="Monto en pesos">
+        <select id="fdia" aria-label="Día del mes"></select>
+        <select id="fcat" aria-label="Categoría" style="grid-column:1/-1"></select>
+        <p id="ferr" hidden></p>
+        <div class="acts"><button type="button" class="rm" id="frm" hidden>Quitar</button><button type="button" id="fcancel">Cancelar</button><button type="submit" class="ok">Guardar</button></div>
+      </form>
+      <div id="fijos"></div>
+    </section>
+    <section class="card">
       <div class="ch"><h3>Por categoría</h3>
         <div class="seg" role="group" aria-label="Tipo de movimiento"><button type="button" data-tipo="g" aria-pressed="true">Gastos</button><button type="button" data-tipo="i" aria-pressed="false">Ingresos</button></div></div>
       <div id="cats"></div>
@@ -203,7 +215,8 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const shortDate=f=>new Date(f+"T12:00").toLocaleDateString("es-CO",{day:"numeric",month:"short"});
 
 let items=[], store=null, cur=new Date(), pendingDel=null, live=[]; // live = mensajes de esta sesión que no son movimientos
-let cfg={presupuestos:{}}, cfgStore=null; // ajustes aparte de los movimientos: presupuestos (luego recurrentes y metas)
+let cfg={presupuestos:{},fijos:[]}, cfgStore=null; // ajustes aparte de los movimientos: presupuestos y fijos (luego metas)
+let fijoEdit=null; // id del fijo que se está editando (""=nuevo)
 let budEdit=null; // categoría que se está editando en el formulario de presupuestos (""=nueva)
 let catTipo="g", catSel=null; // pestaña del desglose y categoría con la que se filtra la lista
 cur.setDate(1);
@@ -211,7 +224,7 @@ cur.setDate(1);
 /* ---------- datos ---------- */
 function persistLocal(){try{localStorage.setItem("mis-cuentas",JSON.stringify(items))}catch(x){}}
 function loadLocal(){try{items=JSON.parse(localStorage.getItem("mis-cuentas")||"[]")}catch(x){items=[]}
-  try{const c=JSON.parse(localStorage.getItem("mis-cuentas-ajustes")||"{}");cfg={...cfg,...c,presupuestos:cleanBudgets(c.presupuestos)}}catch(x){}}
+  try{const c=JSON.parse(localStorage.getItem("mis-cuentas-ajustes")||"{}");cfg={...cfg,...c,presupuestos:cleanBudgets(c.presupuestos),fijos:cleanFijos(c.fijos)}}catch(x){}}
 function persistCfg(){try{localStorage.setItem("mis-cuentas-ajustes",JSON.stringify(cfg))}catch(x){}}
 function cleanBudgets(p){const o={};if(p&&typeof p==="object")for(const c of CATS.g){const n=Math.round(Number(p[c]));if(n>0)o[c]=n}return o}
 // monto>0 pone o cambia el tope mensual de la categoría; 0 lo quita
@@ -220,12 +233,83 @@ async function setBudget(cat,monto){
   cfg={...cfg,presupuestos:p};render();
   try{if(cfgStore)await cfgStore.doc("presupuestos").set(p);else persistCfg();return true}catch(x){return false}
 }
-async function addRecords(movs,texto){
-  const msg="c"+Date.now().toString(36);const base=Date.now();let fails=0;
+/* ---------- gastos e ingresos fijos: se anotan solos cada mes ---------- */
+// {id, tipo, monto, cat, desc, dia 1-31, desde YYYY-MM (primer mes a anotar), ultimo YYYY-MM (último mes ya anotado)}
+function cleanFijos(l){
+  return (Array.isArray(l)?l:[]).map(f=>{const tipo=f&&f.tipo==="i"?"i":"g",monto=Math.round(Number(f&&f.monto)),dia=Math.round(Number(f&&f.dia));
+    const ym=v=>/^\d{4}-\d{2}$/.test(v||"")?v:"";
+    return f&&f.id&&monto>0&&dia>=1&&dia<=31?{id:String(f.id).replace(/[^\w-]/g,"").slice(0,20),tipo,monto,cat:CATS[tipo].includes(f.cat)?f.cat:"Otros",
+      desc:String(f.desc||"").slice(0,40),dia,desde:ym(f.desde)||ymOf(new Date()),ultimo:ym(f.ultimo)}:null}).filter(Boolean);
+}
+async function saveFijos(lista){
+  cfg={...cfg,fijos:lista};render();
+  try{if(cfgStore)await cfgStore.doc("fijos").set({lista});else persistCfg();return true}catch(x){return false}
+}
+const monthDays=ym=>new Date(+ym.slice(0,4),+ym.slice(5,7),0).getDate();
+const fechaFijo=(f,ym)=>ym+"-"+pad(Math.min(f.dia,monthDays(ym)));
+const nextYm=ym=>{const d=new Date(+ym.slice(0,4),+ym.slice(5,7),1);return ymOf(d)};
+const mesNombre=ym=>new Date(ym+"-15T12:00").toLocaleDateString("es-CO",{month:"long"});
+// primer mes que le toca a un fijo nuevo: este mes si su día no ha pasado, si no el siguiente
+function desdeFijo(dia){const n=new Date(),ym=ymOf(n);return Math.min(dia,monthDays(ym))>=n.getDate()?ym:nextYm(ym)}
+let fijosBusy=false;
+// anota los fijos cuyo día ya llegó y que aún no se han anotado (hasta 12 meses atrás si la app no se abrió)
+async function runFijos(){
+  if(fijosBusy||!cfg.fijos.length)return;fijosBusy=true;
+  const hoy=today(),curYm=ymOf(new Date());const movs=[],ids=[],hechos={};
+  for(const f of cfg.fijos){
+    let ym=f.ultimo&&f.ultimo>=f.desde?nextYm(f.ultimo):f.desde,n=0;
+    while(ym<=curYm&&fechaFijo(f,ym)<=hoy&&n<12){
+      const id="f-"+f.id+"-"+ym;
+      if(!items.some(x=>x.id===id)){movs.push({tipo:f.tipo,monto:f.monto,cat:f.cat,desc:f.desc||f.cat,fecha:fechaFijo(f,ym)});ids.push(id)}
+      hechos[f.id]=ym;ym=nextYm(ym);n++;
+    }
+  }
+  if(Object.keys(hechos).length){
+    const before={};for(const m of movs){const ym=m.fecha.slice(0,7);if(!before[ym])before[ym]=monthStats(ym).byCat}
+    if(movs.length)await addRecords(movs,"",{msg:"fijos-"+curYm+"-"+Date.now().toString(36),ids});
+    await saveFijos(cfg.fijos.map(f=>hechos[f.id]?{...f,ultimo:hechos[f.id]}:f));
+    if(movs.length){budgetAlerts(movs,before).forEach((a,k)=>live.push({kind:"bot",cls:a.cls,text:a.text,t:Date.now()+k}));renderChat()}
+  }
+  fijosBusy=false;
+}
+function fijoLine(f){return `${f.desc||f.cat} ${fmt(f.monto)} el día ${f.dia}`}
+function fijosSummary(){
+  if(!cfg.fijos.length)return "No tienes fijos todavía. Créalos así: “arriendo fijo 1 palo el 5 de cada mes”, y yo los anoto solos.";
+  const g=cfg.fijos.filter(f=>f.tipo==="g"),i=cfg.fijos.filter(f=>f.tipo==="i");
+  return [g.length?`Gastos fijos (${fmt(g.reduce((s,f)=>s+f.monto,0))} al mes):\n`+g.map(f=>"• "+fijoLine(f)).join("\n"):"",
+    i.length?`Ingresos fijos (${fmt(i.reduce((s,f)=>s+f.monto,0))} al mes):\n`+i.map(f=>"• "+fijoLine(f)).join("\n"):""].filter(Boolean).join("\n");
+}
+function findFijo(t){
+  t=t.toLowerCase();
+  return cfg.fijos.find(f=>f.desc&&t.includes(f.desc.toLowerCase()))||cfg.fijos.find(f=>t.includes(f.cat.toLowerCase()))||
+    cfg.fijos.find(f=>f.desc&&f.desc.toLowerCase().split(/\s+/).some(w=>w.length>3&&t.includes(w)));
+}
+async function addFijo(m){
+  const f={id:Date.now().toString(36),tipo:m.tipo,monto:m.monto,cat:m.cat,desc:m.desc,dia:m.dia,desde:desdeFijo(m.dia),ultimo:""};
+  const ok=await saveFijos([...cfg.fijos,f]);if(!ok)return null;await runFijos();return cfg.fijos.find(x=>x.id===f.id)||f;
+}
+// respaldo local para "arriendo fijo 1 palo el 5", "netflix 45 mil cada mes", "quita el fijo de netflix", "¿cuáles son mis fijos?"
+function fijoIn(c){const m=clean({...c,fecha:today()}),dia=Math.round(Number(c&&c.dia))||new Date().getDate();
+  return m?{crear:{tipo:m.tipo,monto:m.monto,cat:m.cat,desc:m.desc||m.cat,dia:Math.min(31,Math.max(1,dia))}}:null}
+function localFijo(text){
+  const t=text.toLowerCase();if(!/\bfij[oa]s?\b|cada mes|todos los meses|mensualmente|recurrente/.test(t))return null;
+  if(/(quita|borra|elimina|cancela|ya no)/.test(t)){const f=findFijo(t);return f?{fijo:{quitar:f.id}}:{respuesta:"No encontré ese fijo. "+fijosSummary()}}
+  const dm=t.match(/(?:\bel\s+|d[ií]a\s+)(\d{1,2})(?!\d)(?!\s*(?:mil|k|lucas?|palos?|mill))(?:\s+de\s+cada\s+mes)?/);
+  const sin=dm?t.replace(dm[0]," "):t;const monto=parseMonto(sin);
+  if(!(monto>0))return {respuesta:fijosSummary()};
+  const tipo=INC.test(t)||/sueldo|salario|quincena|n[oó]mina/.test(t)?"i":"g";
+  let cat="Otros";for(const c of CATS[tipo])if(KW[c]&&KW[c].test(t)){cat=c;break}
+  let desc=sin.replace(/(\d[\d.,]*)\s*(mil|k|lucas?|millones?|mill[oó]n|palos?)?|medio palo|un palo/," ")
+    .replace(/(^|\s)(gastos?|ingresos?|fij[oa]s?|cada|mes|todos|los|meses|mensual(mente)?|recurrente|pago|pagar|pagu[eé]|de|del|el|la|en|por|me|un|una|al|pesos|anota|agrega|pon|crea|como)(?=\s|$)/g," ").replace(/\s+/g," ").trim();
+  desc=desc?desc.charAt(0).toUpperCase()+desc.slice(1):cat;
+  return {fijo:{crear:{tipo,monto,cat,desc,dia:dm?Math.min(31,Math.max(1,+dm[1])):new Date().getDate()}}};
+}
+async function addRecords(movs,texto,opt={}){
+  const msg=opt.msg||"c"+Date.now().toString(36);const base=Date.now();let fails=0;
   for(let k=0;k<movs.length;k++){
     const r=movs[k];const rec={tipo:r.tipo,monto:r.monto,cat:r.cat,desc:r.desc||"",fecha:r.fecha,t:base+k,msg,texto:k===0?texto:""};
-    const id="m"+base.toString(36)+k+Math.random().toString(36).slice(2,5);
-    items=[...items,{id,...rec}];
+    const id=opt.ids?opt.ids[k]:"m"+base.toString(36)+k+Math.random().toString(36).slice(2,5);
+    items=[...items.filter(x=>x.id!==id),{id,...rec}];
     try{if(store)await store.doc(id).set(rec);else persistLocal()}catch(x){fails++}
   }
   render();return fails;
@@ -302,6 +386,11 @@ function budgetLine(r){
   return r.spent>r.lim?`${r.cat}: ${fmt(r.spent)} de ${fmt(r.lim)}, te pasaste ${fmt(r.spent-r.lim)}`
     :`${r.cat}: ${fmt(r.spent)} de ${fmt(r.lim)} (${r.pct}%), te quedan ${fmt(r.lim-r.spent)}`;
 }
+function budgetSetText(cat,lim){
+  const sp=monthStats(ymOf(new Date())).byCat[cat]||0,pc=Math.round(sp/lim*100);
+  return `Listo, tu presupuesto de ${cat} es ${fmt(lim)} al mes. Este mes llevas ${fmt(sp)} (${pc}%). `+
+    (sp>lim?`Ya te pasaste por ${fmt(sp-lim)}.`:pc>=80?`Ojo, ya vas por encima del 80%: te quedan ${fmt(lim-sp)}.`:"Te aviso cuando vayas por el 80%.");
+}
 function budgetSummary(cat){
   const rows=budgetRows(ymOf(new Date()));
   if(cat){const r=rows.find(x=>x.cat===cat);
@@ -359,6 +448,7 @@ Datos del usuario:
 - Este mes (${ymOf(now)}): ingresos ${a.tin}, gastos ${a.tout}, gastos por categoría ${JSON.stringify(a.byCat)}, ingresos por categoría ${JSON.stringify(a.byCatI)}
 - Mes anterior (${ymOf(prev)}): ingresos ${b.tin}, gastos ${b.tout}, gastos por categoría ${JSON.stringify(b.byCat)}, ingresos por categoría ${JSON.stringify(b.byCatI)}
 - Presupuestos mensuales por categoría de gasto (tope en pesos): ${JSON.stringify(cfg.presupuestos)}
+- Gastos/ingresos fijos que se anotan solos cada mes: ${JSON.stringify(cfg.fijos.map(f=>({id:f.id,tipo:f.tipo,monto:f.monto,cat:f.cat,desc:f.desc,dia:f.dia})))}
 - Últimos movimientos (el primero es el último registrado): ${JSON.stringify(ult)}
 
 Según el mensaje, haz UNA de estas cosas:
@@ -367,15 +457,17 @@ Según el mensaje, haz UNA de estas cosas:
 3. Si pide borrar o deshacer el último movimiento: "borrarUltimo": true.
 4. Si pide cambiar la categoría del último movimiento: "cambiarUltimo" con el nombre exacto de la nueva categoría (del mismo tipo que ese movimiento).
 5. Si pone, cambia o quita el presupuesto (tope mensual) de una categoría de gasto, por ejemplo "presupuesto comida 600 mil" o "quita el presupuesto de ropa": "presupuesto" con {"cat": nombre exacto de la categoría de gasto, "monto": el tope en pesos, o 0 para quitarlo}. Eso NO es un gasto: no lo pongas en "movimientos".
-6. Si no entiendes: pide en "respuesta" que lo diga de otra forma, con un ejemplo.
+6. Si crea un gasto o ingreso FIJO que se repite cada mes (arriendo, servicios, suscripciones, sueldo), por ejemplo "arriendo fijo 1 palo el 5 de cada mes" o "netflix 45 mil cada mes": "fijo" con {"crear": {"tipo","monto","cat","desc","dia": día del mes 1-31; si no lo dice, el de hoy}}. Si pide quitar uno: "fijo" con {"quitar": id del fijo}. Eso NO es un movimiento: no lo pongas en "movimientos" (la app lo anota sola el día que toca).
+7. Si no entiendes: pide en "respuesta" que lo diga de otra forma, con un ejemplo.
 Si pregunta cómo va con sus presupuestos, compara lo gastado este mes en cada categoría con su tope y dile cuánto le queda o cuánto se pasó.
-Responde SOLO con JSON: {"movimientos":[],"respuesta":"","borrarUltimo":false,"cambiarUltimo":"","presupuesto":null}
+Responde SOLO con JSON: {"movimientos":[],"respuesta":"","borrarUltimo":false,"cambiarUltimo":"","presupuesto":null,"fijo":null}
 
 Mensaje: """${text}"""`;
   const r=await s.json(prompt,{modelTier:"quick",cache:false});
   return {movs:(Array.isArray(r&&r.movimientos)?r.movimientos:[]).map(clean).filter(Boolean),
     respuesta:r&&typeof r.respuesta==="string"?r.respuesta:"",borrarUltimo:!!(r&&r.borrarUltimo),
     cambiarUltimo:r&&typeof r.cambiarUltimo==="string"?r.cambiarUltimo:"",
+    fijo:r&&r.fijo?(r.fijo.quitar&&cfg.fijos.some(f=>f.id===r.fijo.quitar)?{quitar:r.fijo.quitar}:r.fijo.crear?fijoIn(r.fijo.crear):null):null,
     presupuesto:r&&r.presupuesto&&CATS.g.includes(r.presupuesto.cat)?{cat:r.presupuesto.cat,monto:Math.max(0,Math.round(Number(r.presupuesto.monto)||0))}:null};
 }
 
@@ -388,7 +480,8 @@ function welcome(){
   <div class="ex"><button type="button" data-ex="Gasté 25 mil en almuerzo y 8 mil en mototaxi">Gasté 25 mil en almuerzo y 8 mil en mototaxi</button>
   <button type="button" data-ex="Ayer me pagó un cliente 120 lucas">Ayer me pagó un cliente 120 lucas</button>
   <button type="button" data-ex="¿Cómo voy este mes?">¿Cómo voy este mes?</button>
-  <button type="button" data-ex="Presupuesto comida 600 mil">Presupuesto comida 600 mil</button></div></div>`;
+  <button type="button" data-ex="Presupuesto comida 600 mil">Presupuesto comida 600 mil</button>
+  <button type="button" data-ex="Arriendo fijo 1 palo el 5 de cada mes">Arriendo fijo 1 palo el 5 de cada mes</button></div></div>`;
 }
 function renderChat(){
   const chat=$("chat");const atBottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<80;
@@ -401,7 +494,7 @@ function renderChat(){
     if(e.kind==="rec"){
       if(e.texto)html+=`<div class="b me">${esc(e.texto)}<time>${hhmm(e.t)}</time></div>`;
       const li=e.recs.map(r=>`<li><span>${esc(r.desc||r.cat)}<br><small>${esc(r.cat)} · ${shortDate(r.fecha)}</small></span><span class="a ${r.tipo}">${r.tipo==="i"?"+":"−"}${fmt(r.monto)}</span></li>`).join("");
-      html+=`<div class="b bot">Anotado ✓<ul>${li}</ul><button class="undo" type="button" data-undo="${esc(e.k)}">Deshacer</button><time>${hhmm(e.t+1)}</time></div>`;
+      html+=`<div class="b bot">${String(e.k).startsWith("fijos-")?"Anoté tus fijos ✓":"Anotado ✓"}<ul>${li}</ul><button class="undo" type="button" data-undo="${esc(e.k)}">Deshacer</button><time>${hhmm(e.t+1)}</time></div>`;
     }else if(e.kind==="me"){html+=`<div class="b me">${esc(e.text)}<time>${hhmm(e.t)}</time></div>`}
     else if(e.kind==="bot"){html+=`<div class="b bot${e.cls?" "+e.cls:""}">${esc(e.text)}<time>${hhmm(e.t)}</time></div>`}
     else if(e.kind==="typing"){html+=`<div class="b bot typing" aria-label="Escribiendo"><span></span><span></span><span></span></div>`}
@@ -413,7 +506,7 @@ function renderSheet(){
   $("mlabel").textContent=cur.toLocaleDateString("es-CO",{month:"long",year:"numeric"});
   const s=monthStats(ymOf(cur));const bal=s.tin-s.tout;
   $("saldo").textContent=(bal<0?"−":"")+fmt(Math.abs(bal));$("tin").textContent=fmt(s.tin);$("tout").textContent=fmt(s.tout);
-  renderBudgets();
+  renderBudgets();renderFijos();
   document.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tipo===catTipo));
   const map=catTipo==="i"?s.byCatI:s.byCat,total=catTipo==="i"?s.tin:s.tout;
   const cats=Object.entries(map).sort((a,b)=>b[1]-a[1]);
@@ -456,6 +549,24 @@ function openBudForm(cat){
   $("brm").hidden=!cat;renderBudgets();$("bmonto").focus();
 }
 function closeBudForm(){budEdit=null;$("bform").hidden=true;renderBudgets()}
+function renderFijos(){
+  const ym=ymOf(cur),l=[...cfg.fijos].sort((a,b)=>a.dia-b.dia);
+  $("fijos").innerHTML=l.length?l.map(f=>{
+    const st=ym<f.desde?"Empieza en "+mesNombre(f.desde):items.some(x=>x.id==="f-"+f.id+"-"+ym)||(f.ultimo&&f.ultimo>=ym)?"Anotado ✓":"Pendiente";
+    return `<button type="button" class="bud" data-fijo="${esc(f.id)}" aria-label="Editar ${esc(f.desc||f.cat)}"><span>${esc(f.desc||f.cat)}</span><span class="num a ${f.tipo}" style="font-weight:700">${f.tipo==="i"?"+":"−"}${fmt(f.monto)}</span><small>Día ${f.dia} · ${esc(f.cat)} · ${st}</small></button>`}).join("")
+    +`<p class="hint" style="margin:4px 8px 0">Gastos fijos: ${fmt(l.filter(f=>f.tipo==="g").reduce((s,f)=>s+f.monto,0))} al mes. Se anotan solos el día que toca.</p>`
+    :`<p class="empty" style="margin:0 8px">Arriendo, servicios, suscripciones o tu sueldo: agrégalos una vez y yo los anoto solos cada mes. También puedes escribir “arriendo fijo 1 palo el 5 de cada mes”.</p>`;
+  $("addFijo").hidden=fijoEdit!==null;
+}
+function openFijoForm(id){
+  fijoEdit=id;const f=cfg.fijos.find(x=>x.id===id);$("fform").hidden=false;$("ferr").hidden=true;
+  $("fcat").innerHTML=`<optgroup label="Gastos">${CATS.g.map(c=>`<option value="g|${c}">${c}</option>`).join("")}</optgroup><optgroup label="Ingresos">${CATS.i.map(c=>`<option value="i|${c}">${c}</option>`).join("")}</optgroup>`;
+  $("fdia").innerHTML=Array.from({length:31},(_,k)=>`<option value="${k+1}">Día ${k+1}</option>`).join("");
+  $("fdesc").value=f?f.desc:"";$("fmonto").value=f?f.monto.toLocaleString("es-CO"):"";
+  $("fcat").value=f?f.tipo+"|"+f.cat:"g|Vivienda";$("fdia").value=String(f?f.dia:new Date().getDate());
+  $("frm").hidden=!f;renderFijos();$("fdesc").focus();
+}
+function closeFijoForm(){fijoEdit=null;$("fform").hidden=true;renderFijos()}
 function renderHeader(){
   const s=monthStats(ymOf(new Date()));const bal=s.tin-s.tout;
   const m=new Date().toLocaleDateString("es-CO",{month:"long"});
@@ -472,7 +583,7 @@ async function send(text){
   live.push(me,typing);renderChat();
   let res=null;
   try{res=await ask(text)}catch(x){res=null}
-  if(!res){const b=localBudget(text);if(b)res={movs:[],...b};else{const movs=localParse(text);res=movs.length?{movs,respuesta:""}:{movs:[],...localAnswer(text)}}}
+  if(!res){const b=localBudget(text)||localFijo(text);if(b)res={movs:[],...b};else{const movs=localParse(text);res=movs.length?{movs,respuesta:""}:{movs:[],...localAnswer(text)}}}
   live=live.filter(e=>e!==typing);
   const last=lastItem();
   if(res.movs&&res.movs.length){
@@ -484,11 +595,19 @@ async function send(text){
   }else if(res.borrarUltimo){
     if(last){await removeIds([last.id]);live.push({kind:"bot",text:`Listo, borré “${last.desc||last.cat}” por ${fmt(last.monto)}.`,t:Date.now()})}
     else live.push({kind:"bot",text:"No tienes movimientos para borrar.",t:Date.now()});
+  }else if(res.fijo&&res.fijo.crear){
+    const f=await addFijo(res.fijo.crear);
+    live.push({kind:"bot",text:!f?"No pude guardar el fijo. Revisa tu conexión e inténtalo otra vez.":
+      `Listo, ${f.tipo==="i"?"ingreso":"gasto"} fijo: ${fijoLine(f)} de cada mes. `+(f.desde===ymOf(new Date())?(f.ultimo?"Ya quedó anotado el de este mes.":"Lo anoto solo ese día."):`Este mes ya pasó el día ${f.dia}, así que empiezo en ${mesNombre(f.desde)}; si el de este mes no lo has anotado, escríbemelo.`),t:Date.now()+50});
+  }else if(res.fijo&&res.fijo.quitar){
+    const f=cfg.fijos.find(x=>x.id===res.fijo.quitar);
+    const ok=f&&await saveFijos(cfg.fijos.filter(x=>x!==f));
+    live.push({kind:"bot",text:!f?"No encontré ese fijo.":ok?`Listo, ya no anoto ${f.desc||f.cat} cada mes. Lo que ya estaba anotado se queda.`:"No pude guardar el cambio. Revisa tu conexión.",t:Date.now()});
   }else if(res.presupuesto){
     const {cat,monto}=res.presupuesto,had=cfg.presupuestos[cat];
     if(!monto&&!had)live.push({kind:"bot",text:`No tenías presupuesto para ${cat}.`,t:Date.now()});
     else{const ok=await setBudget(cat,monto);
-      live.push({kind:"bot",text:!ok?"No pude guardar el presupuesto. Revisa tu conexión e inténtalo otra vez.":monto?`Listo, tu presupuesto de ${cat} es ${fmt(monto)} al mes. Este mes llevas ${fmt(monthStats(ymOf(new Date())).byCat[cat]||0)} (${Math.round((monthStats(ymOf(new Date())).byCat[cat]||0)/monto*100)}%). Te aviso cuando vayas por el 80%.`:`Listo, quité el presupuesto de ${cat}.`,t:Date.now()})}
+      live.push({kind:"bot",text:!ok?"No pude guardar el presupuesto. Revisa tu conexión e inténtalo otra vez.":monto?budgetSetText(cat,monto):`Listo, quité el presupuesto de ${cat}.`,t:Date.now()})}
   }else if(res.cambiarUltimo&&last&&CATS[last.tipo].includes(res.cambiarUltimo)){
     const ok=await setCat(last.id,res.cambiarUltimo);
     live.push({kind:"bot",text:ok?`Listo, “${last.desc||last.cat}” ahora está en ${res.cambiarUltimo}.`:"No pude guardar el cambio. Revisa tu conexión e inténtalo otra vez.",t:Date.now()});
@@ -536,7 +655,7 @@ $("chat").addEventListener("click",e=>{
   const u=e.target.closest("[data-undo]");if(u){const k=u.dataset.undo;const ids=items.filter(x=>(x.msg||x.id)===k).map(x=>x.id);
     removeIds(ids);live.push({kind:"bot",text:"Deshecho. Ya no aparece en tus cuentas.",t:Date.now()});renderChat()}
 });
-$("openSheet").onclick=()=>{cur=new Date();cur.setDate(1);catSel=null;budEdit=null;$("bform").hidden=true;$("sheet").hidden=false;renderSheet()};
+$("openSheet").onclick=()=>{cur=new Date();cur.setDate(1);catSel=null;budEdit=null;$("bform").hidden=true;fijoEdit=null;$("fform").hidden=true;$("sheet").hidden=false;renderSheet()};
 $("closeSheet").onclick=()=>{$("sheet").hidden=true};
 $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")$("sheet").hidden=true});
 $("prev").onclick=()=>{cur.setMonth(cur.getMonth()-1);catSel=null;renderSheet()};
@@ -545,9 +664,19 @@ document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{catTipo=b.dat
 $("cats").addEventListener("click",e=>{const c=e.target.closest("[data-cat]");if(!c)return;catSel=catSel===c.dataset.cat?null:c.dataset.cat;renderSheet()});
 $("clearCat").onclick=()=>{catSel=null;renderSheet()};
 $("addBud").onclick=()=>openBudForm("");
+$("addFijo").onclick=()=>openFijoForm("");
+$("fijos").addEventListener("click",e=>{const b=e.target.closest("[data-fijo]");if(b)openFijoForm(b.dataset.fijo)});
+$("fcancel").onclick=closeFijoForm;
+$("fform").addEventListener("submit",async e=>{e.preventDefault();
+  const [tipo,cat]=$("fcat").value.split("|"),monto=parseMonto($("fmonto").value.toLowerCase()),dia=+$("fdia").value,desc=$("fdesc").value.trim().slice(0,40)||cat;
+  if(!(monto>0)){$("ferr").textContent="Escribe un monto mayor a $0.";$("ferr").hidden=false;return}
+  const id=fijoEdit;closeFijoForm();let ok;
+  if(id)ok=await saveFijos(cfg.fijos.map(f=>f.id===id?{...f,tipo,cat,monto,dia,desc}:f));else ok=!!await addFijo({tipo,cat,monto,dia,desc});
+  if(!ok)$("status").textContent="No se pudo guardar el fijo. Revisa tu conexión."});
+$("frm").onclick=async()=>{const id=fijoEdit;closeFijoForm();if(id&&!await saveFijos(cfg.fijos.filter(f=>f.id!==id)))$("status").textContent="No se pudo quitar el fijo. Revisa tu conexión."};
 $("budgets").addEventListener("click",e=>{const b=e.target.closest("[data-bud]");if(b)openBudForm(b.dataset.bud)});
 $("bcancel").onclick=closeBudForm;
-$("bmonto").addEventListener("input",e=>{const v=e.target.value;if(/^[\d.\s]*$/.test(v)){const n=v.replace(/\D/g,"");e.target.value=n?Number(n).toLocaleString("es-CO"):""}});
+["bmonto","fmonto"].forEach(k=>$(k).addEventListener("input",e=>{const v=e.target.value;if(/^[\d.\s]*$/.test(v)){const n=v.replace(/\D/g,"");e.target.value=n?Number(n).toLocaleString("es-CO"):""}}));
 $("bform").addEventListener("submit",async e=>{e.preventDefault();
   const cat=$("bcat").value,n=parseMonto($("bmonto").value.toLowerCase());
   if(!CATS.g.includes(cat)||!(n>0)){$("berr").textContent="Escribe un tope mayor a $0.";$("berr").hidden=false;return}
@@ -561,12 +690,14 @@ if(window.claude){
   (async()=>{
     const db=await window.claude.use("db"),user=await window.claude.use("user");
     const uid=user?await user.id():null;
-    if(!db||!uid){$("status").textContent="Guardado solo en este navegador.";return}
+    if(!db||!uid){$("status").textContent="Guardado solo en este navegador.";runFijos();return}
     store=db.collection("data/users/"+uid);
     cfgStore=db.doc("data/users/"+uid+"/ajustes").collection("cfg"); // presupuestos y demás ajustes, aparte de los movimientos
-    cfgStore.onSnapshot(s=>{const d=s.docs.find(x=>x.id==="presupuestos");cfg={...cfg,presupuestos:cleanBudgets(d&&d.data())};render()},()=>{});
-    store.onSnapshot(s=>{items=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>(x.tipo==="g"||x.tipo==="i")&&typeof x.fecha==="string");render();$("status").textContent="Guardado en tu cuenta · privado"},
+    let gotCfg=false,gotItems=false;const ready=()=>{if(gotCfg&&gotItems)runFijos()};
+    cfgStore.onSnapshot(s=>{const d=s.docs.find(x=>x.id==="presupuestos"),f=s.docs.find(x=>x.id==="fijos");
+      cfg={...cfg,presupuestos:cleanBudgets(d&&d.data()),fijos:cleanFijos(f&&f.data().lista)};render();gotCfg=true;ready()},()=>{});
+    store.onSnapshot(s=>{items=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>(x.tipo==="g"||x.tipo==="i")&&typeof x.fecha==="string");render();$("status").textContent="Guardado en tu cuenta · privado";gotItems=true;ready()},
       ()=>{$("status").textContent="Sin conexión con tus datos. Recarga la página."});
   })();
-}else{$("status").textContent="Guardado solo en este navegador."}
+}else{$("status").textContent="Guardado solo en este navegador.";runFijos()}
 </script>
