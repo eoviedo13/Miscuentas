@@ -192,6 +192,25 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 .fact .acts .ok{background:var(--accent);color:var(--accent-ink)}
 .fact .err{grid-column:1/-1;margin:0;font-size:.78rem;color:var(--out)}
 .fact-items{margin:6px 0 0;font-size:.8rem;color:var(--muted)}
+/* cuentas, deudas, recordatorio y copia de seguridad */
+.neg{color:var(--out)} .pos{color:var(--in)}
+.meta select{flex:0 1 auto;min-width:4.5rem;text-overflow:ellipsis} .meta small{flex:none;white-space:nowrap} .list .fd{display:block;font:500 .75rem var(--body);color:var(--muted);margin-top:3px}
+.tot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.88rem;padding:2px 8px 4px}
+.tot b{font-family:var(--mono)}
+.tline{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.8rem;color:var(--muted)}
+.tline span{min-width:0;overflow-wrap:anywhere}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow button{border:0;border-radius:999px;height:42px;padding:0 16px;font:600 .88rem var(--body);cursor:pointer;background:var(--bg);color:var(--fg)}
+.btnrow .ok{background:var(--accent);color:var(--accent-ink)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.recrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.switch{flex:1;min-width:180px;display:flex;align-items:center;gap:10px;font-size:.92rem;font-weight:600;cursor:pointer}
+.switch input{flex:none;width:22px;height:22px;margin:0;accent-color:var(--accent)}
+.recrow input[type=time]{font:600 1rem var(--mono);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;min-height:42px;padding:4px 10px}
+.recrow input[type=time]:disabled{opacity:.5}
+.bform .check{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--fg);margin:0;cursor:pointer}
+.bform .check input{flex:none;width:20px;height:20px;min-height:0;padding:0;accent-color:var(--accent)}
+.b .act{display:block}
 /* app instalada: respeta la muesca de arriba y el botón de instalar */
 .top{padding-top:calc(10px + env(safe-area-inset-top,0px))}
 .iconbtn.round{width:40px;padding:0;justify-content:center;flex:none}
@@ -233,6 +252,26 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
       <div class="split"><div><span class="lbl">Ingresos</span><strong id="tin">$0</strong></div><div><span class="lbl">Gastos</span><strong id="tout">$0</strong></div></div>
     </section>
     <section class="card">
+      <div class="ch"><h3>Cuentas</h3><div class="chips"><button class="chip" id="addTransf" type="button">⇄ Pasar plata</button><button class="chip" id="addCuenta" type="button">+ Agregar</button></div></div>
+      <form class="bform" id="cform" hidden>
+        <input id="cnombre" autocomplete="off" maxlength="24" placeholder="Ej.: Daviplata" aria-label="Nombre de la cuenta" style="font-family:var(--body)">
+        <select id="ctipo" aria-label="Tipo de cuenta"></select>
+        <label for="csaldo" id="csaldoLbl">¿Cuánto tienes hoy en esta cuenta?</label>
+        <input id="csaldo" inputmode="numeric" autocomplete="off" placeholder="$0" style="grid-column:1/-1">
+        <label class="check"><input type="checkbox" id="cdef"> Cuenta principal: ahí anoto lo que no diga cuenta</label>
+        <p id="cerr" hidden></p>
+        <div class="acts"><button type="button" class="rm" id="crm" hidden>Quitar</button><button type="button" id="ccancel">Cancelar</button><button type="submit" class="ok">Guardar</button></div>
+      </form>
+      <form class="bform" id="tform" hidden>
+        <select id="tde" aria-label="De la cuenta"></select>
+        <select id="tpara" aria-label="A la cuenta"></select>
+        <input id="tmonto" inputmode="numeric" autocomplete="off" placeholder="¿Cuánto?" aria-label="Monto a pasar" style="grid-column:1/-1">
+        <p id="terr" hidden></p>
+        <div class="acts"><button type="button" id="tcancel">Cancelar</button><button type="submit" class="ok">Pasar</button></div>
+      </form>
+      <div id="cuentas"></div>
+    </section>
+    <section class="card">
       <div class="ch"><h3>Presupuestos</h3><button class="chip" id="addBud" type="button">+ Agregar</button></div>
       <form class="bform" id="bform" hidden>
         <select id="bcat" aria-label="Categoría"></select>
@@ -268,6 +307,19 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
       <div id="metas"></div>
     </section>
     <section class="card">
+      <div class="ch"><h3>Deudas y préstamos</h3><button class="chip" id="addDeuda" type="button">+ Agregar</button></div>
+      <form class="bform" id="dform" hidden>
+        <select id="dtipo" aria-label="Tipo" style="grid-column:1/-1"><option value="me">Me deben (yo presté)</option><option value="yo">Yo debo (me prestaron)</option></select>
+        <input id="dquien" autocomplete="off" maxlength="30" placeholder="¿Quién?" aria-label="Quién" style="font-family:var(--body)">
+        <input id="dmonto" inputmode="numeric" autocomplete="off" placeholder="¿Cuánto?" aria-label="Monto">
+        <input id="ddesc" autocomplete="off" maxlength="40" placeholder="¿Para qué? (opcional)" aria-label="Para qué" style="grid-column:1/-1;font-family:var(--body)">
+        <div class="abono" id="dabono" hidden><input id="dpago" inputmode="numeric" autocomplete="off" placeholder="Abono" aria-label="Monto del abono"><button type="button" class="ok" id="dabonar">Abonar</button><button type="button" id="dpagada">Pagada ✓</button></div>
+        <p id="derr" hidden></p>
+        <div class="acts"><button type="button" class="rm" id="drm" hidden>Quitar</button><button type="button" id="dcancel">Cancelar</button><button type="submit" class="ok">Guardar</button></div>
+      </form>
+      <div id="deudas"></div>
+    </section>
+    <section class="card">
       <div class="ch"><h3>Fijos del mes</h3><button class="chip" id="addFijo" type="button">+ Agregar</button></div>
       <form class="bform" id="fform" hidden>
         <input id="fdesc" autocomplete="off" maxlength="40" placeholder="Ej.: Arriendo" aria-label="Descripción" style="grid-column:1/-1;font-family:var(--body)">
@@ -282,6 +334,18 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
     <section class="card">
       <div class="ch"><h3 id="listTitle">Movimientos</h3><button class="chip" id="clearCat" type="button" hidden>Ver todos ✕</button></div>
       <ul class="list" id="list"></ul>
+    </section>
+    <section class="card">
+      <div class="ch"><h3>Recordatorio diario</h3></div>
+      <div class="recrow"><label class="switch"><input type="checkbox" id="recOn">Recordarme anotar mis gastos</label><input type="time" id="recHora" value="21:00" aria-label="Hora del recordatorio"></div>
+      <p class="hint" id="recNota"></p>
+      <div class="btnrow"><button type="button" class="ok" id="recNotif" hidden>Activar notificaciones</button><button type="button" id="recCal" hidden>Agregar a mi calendario</button></div>
+    </section>
+    <section class="card">
+      <div class="ch"><h3>Copia de seguridad</h3></div>
+      <p class="hint" style="font-size:.85rem">Pasa tus cuentas entre Mis Cuentas en Claude y la app instalable: guarda la copia en una y cárgala en la otra. Lo que ya tengas no se repite.</p>
+      <div class="btnrow"><button type="button" class="ok" id="copiaSave">Guardar copia</button><button type="button" id="copiaLoad">Cargar copia</button></div>
+      <input type="file" id="copiafile" accept=".json,application/json" hidden>
     </section>
     <section class="card export"><p>Descarga todos tus movimientos y el resumen de cada mes en un archivo de Excel.</p><button type="button" id="xlsx">Exportar a Excel</button></section>
     <p class="status" id="status">Conectando…</p>
@@ -303,7 +367,12 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const shortDate=f=>new Date(f+"T12:00").toLocaleDateString("es-CO",{day:"numeric",month:"short"});
 
 let items=[], store=null, cur=new Date(), pendingDel=null, live=[]; // live = mensajes de esta sesión que no son movimientos
-let cfg={presupuestos:{},fijos:[],metas:[]}, cfgStore=null; // ajustes aparte de los movimientos: presupuestos, fijos y metas de ahorro
+const TIPOS_CUENTA={efectivo:"Efectivo",digital:"Billetera digital",banco:"Cuenta de banco",tarjeta:"Tarjeta de crédito"};
+const CUENTAS0=[{id:"efectivo",nombre:"Efectivo",tipo:"efectivo"},{id:"nequi",nombre:"Nequi",tipo:"digital"},{id:"banco",nombre:"Banco",tipo:"banco"},{id:"tarjeta",nombre:"Tarjeta",tipo:"tarjeta"}];
+const idSafe=v=>String(v||"").replace(/[^\w-]/g,"").slice(0,20);
+// ajustes aparte de los movimientos: presupuestos, fijos, metas de ahorro, deudas, cuentas, pasos de plata entre cuentas y recordatorio
+let cfg={presupuestos:{},fijos:[],metas:[],deudas:[],cuentas:cleanCuentas(null),transf:[],recordatorio:cleanRec(null)}, cfgStore=null;
+let cuentaEdit=null, deudaEdit=null; // cuenta o deuda que se está editando (""=nueva)
 let metaEdit=null; // id de la meta que se está editando (""=nueva)
 let fijoEdit=null; // id del fijo que se está editando (""=nuevo)
 let budEdit=null; // categoría que se está editando en el formulario de presupuestos (""=nueva)
@@ -313,7 +382,8 @@ cur.setDate(1);
 /* ---------- datos ---------- */
 function persistLocal(){try{localStorage.setItem("mis-cuentas",JSON.stringify(items))}catch(x){}}
 function loadLocal(){try{items=JSON.parse(localStorage.getItem("mis-cuentas")||"[]")}catch(x){items=[]}
-  try{const c=JSON.parse(localStorage.getItem("mis-cuentas-ajustes")||"{}");cfg={...cfg,...c,presupuestos:cleanBudgets(c.presupuestos),fijos:cleanFijos(c.fijos),metas:cleanMetas(c.metas)}}catch(x){}}
+  try{const c=JSON.parse(localStorage.getItem("mis-cuentas-ajustes")||"{}");cfg={...cfg,...c,presupuestos:cleanBudgets(c.presupuestos),fijos:cleanFijos(c.fijos),metas:cleanMetas(c.metas),
+    deudas:cleanDeudas(c.deudas),cuentas:cleanCuentas(c.cuentas),transf:cleanTransf(c.transf),recordatorio:cleanRec(c.recordatorio)}}catch(x){}}
 function persistCfg(){try{localStorage.setItem("mis-cuentas-ajustes",JSON.stringify(cfg))}catch(x){}}
 function cleanBudgets(p){const o={};if(p&&typeof p==="object")for(const c of CATS.g){const n=Math.round(Number(p[c]));if(n>0)o[c]=n}return o}
 // monto>0 pone o cambia el tope mensual de la categoría; 0 lo quita
@@ -474,6 +544,321 @@ function localMeta(text){
   if(/\bmetas?\b|mis ahorros|cu[aá]nto (he|llevo) ahorrado/.test(t))return {respuesta:metasSummary()};
   return null;
 }
+/* ---------- cuentas: efectivo, Nequi, banco, tarjeta ---------- */
+// cfg.cuentas={lista:[{id,nombre,tipo,inicial}], def: la principal, base: donde quedan los movimientos de antes de las cuentas}.
+// Los movimientos nuevos llevan "cuenta" (id); los viejos no la traen y se cuentan en "base", así no hay que reescribirlos.
+// cfg.transf=[{id,de,a,monto,fecha}]: pasar plata entre cuentas (cajero, recargas, pagar la tarjeta) no es gasto ni ingreso.
+const ALIAS_CUENTA={efectivo:/efectivo|cash|billete|en la mano/,tarjeta:/tarjeta|cr[eé]dito|\bvisa\b|master/,banco:/\bbanco|bancolombia|davivienda|bbva|cuenta de ahorros|d[eé]bito|cajero|transferencia/,digital:/nequi|daviplata|movii/};
+function cleanCuentas(c){
+  const l=(c&&Array.isArray(c.lista)?c.lista:[]).map(x=>x&&idSafe(x.id)&&x.nombre?{id:idSafe(x.id),nombre:String(x.nombre).slice(0,24),tipo:TIPOS_CUENTA[x.tipo]?x.tipo:"banco",inicial:Math.round(Number(x.inicial))||0}:null).filter(Boolean);
+  const lista=l.length?l:CUENTAS0.map(x=>({...x,inicial:0})),ok=id=>lista.some(x=>x.id===id),def=ok(c&&c.def)?c.def:lista[0].id;
+  return {lista,def,base:ok(c&&c.base)?c.base:def};
+}
+function cleanTransf(l){
+  return (Array.isArray(l)?l:[]).map(x=>{const monto=Math.round(Number(x&&x.monto)),de=idSafe(x&&x.de),a=idSafe(x&&x.a);
+    return x&&idSafe(x.id)&&monto>0&&de&&a&&de!==a?{id:idSafe(x.id),de,a,monto,fecha:/^\d{4}-\d{2}-\d{2}$/.test(x.fecha||"")?x.fecha:today()}:null}).filter(Boolean);
+}
+async function saveCuentas(c){
+  cfg={...cfg,cuentas:c};render();
+  try{if(cfgStore)await cfgStore.doc("cuentas").set(c);else persistCfg();return true}catch(x){return false}
+}
+async function saveTransf(lista){
+  cfg={...cfg,transf:lista};render();
+  try{if(cfgStore)await cfgStore.doc("transferencias").set({lista});else persistCfg();return true}catch(x){return false}
+}
+const cuentaById=id=>cfg.cuentas.lista.find(c=>c.id===id);
+const cuentaDe=x=>x.cuenta&&cuentaById(x.cuenta)?x.cuenta:cuentaById(cfg.cuentas.base)?cfg.cuentas.base:cfg.cuentas.def;
+const cuentaNombre=id=>(cuentaById(id)||{nombre:"?"}).nombre;
+const varias=()=>cfg.cuentas.lista.length>1;
+const signo=n=>(n<0?"−":"")+fmt(Math.abs(n));
+function saldoCuenta(id){
+  let s=(cuentaById(id)||{inicial:0}).inicial;
+  for(const x of items)if(cuentaDe(x)===id)s+=x.tipo==="i"?x.monto:-x.monto;
+  for(const t of cfg.transf){if(t.a===id)s+=t.monto;if(t.de===id)s-=t.monto}
+  return s;
+}
+function cuentaLine(c){const s=saldoCuenta(c.id);return c.tipo==="tarjeta"&&s<0?`${c.nombre}: debes ${fmt(-s)}`:`${c.nombre}: ${signo(s)}`}
+function cuentasSummary(){
+  const l=cfg.cuentas.lista;
+  return "Así están tus cuentas:\n"+l.map(c=>"• "+cuentaLine(c)).join("\n")+`\nTotal: ${signo(l.reduce((s,c)=>s+saldoCuenta(c.id),0))}`+
+    (l.every(c=>!c.inicial)?"\nSi algún saldo no cuadra, dime cuánto tienes de verdad, por ejemplo: “tengo 350 mil en Nequi”.":"");
+}
+const escRe=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+// cuentas que nombra el texto, en el orden en que aparecen: [{id, i: posición, txt: lo que coincidió}]
+function cuentasIn(t){
+  const out=[],pisa=k=>out.some(o=>k>=o.i&&k<o.i+o.txt.length);
+  for(const c of [...cfg.cuentas.lista].sort((a,b)=>b.nombre.length-a.nombre.length)){
+    const m=t.match(new RegExp("(^|[^a-zñáéíóú])("+escRe(c.nombre.toLowerCase())+")(?![a-zñáéíóú])"));
+    if(m){const k=m.index+m[1].length;if(!pisa(k))out.push({id:c.id,i:k,txt:m[2]})}
+  }
+  for(const tp in ALIAS_CUENTA){const m=t.match(ALIAS_CUENTA[tp]);if(!m||pisa(m.index))continue;
+    const c=cfg.cuentas.lista.find(x=>x.tipo===tp&&!out.some(o=>o.id===x.id));if(c)out.push({id:c.id,i:m.index,txt:m[0]})}
+  return out.sort((a,b)=>a.i-b.i);
+}
+// quita de la descripción "con Nequi", "en efectivo", "con la tarjeta de crédito"…
+const sinCuenta=(d,cs)=>cs.reduce((s,c)=>s.replace(new RegExp("(^|\\s)(?:(?:con|por|en|desde|del|de|a|al)\\s+)?(?:(?:la|el|mi)\\s+)?"+escRe(c.txt)+"(?:\\s+de\\s+cr[eé]dito)?(?=\\s|$)")," "),d);
+async function hacerTransf(x){
+  const t={id:"t"+Date.now().toString(36),de:x.de,a:x.a,monto:x.monto,fecha:today()};
+  if(!await saveTransf([...cfg.transf,t]))return "No pude guardar el cambio. Revisa tu conexión e inténtalo otra vez.";
+  const A=cuentaById(x.a),D=cuentaById(x.de);
+  return (A.tipo==="tarjeta"?`Listo, abonaste ${fmt(x.monto)} a ${A.nombre} desde ${D.nombre}.`:`Listo, pasé ${fmt(x.monto)} de ${D.nombre} a ${A.nombre}.`)+` Ahora: ${cuentaLine(D)}; ${cuentaLine(A)}. No cuenta como gasto.`;
+}
+// pone el saldo de hoy de una cuenta ajustando su saldo inicial
+async function ajustarSaldo(id,saldo){
+  const c=cuentaById(id),base=saldoCuenta(id)-c.inicial;
+  const ok=await saveCuentas({...cfg.cuentas,lista:cfg.cuentas.lista.map(x=>x.id===id?{...x,inicial:saldo-base}:x)});
+  if(!ok)return "No pude guardar el saldo. Revisa tu conexión e inténtalo otra vez.";
+  return (c.tipo==="tarjeta"&&saldo<0?`Listo, en ${c.nombre} debes ${fmt(-saldo)}.`:`Listo, ${c.nombre} queda en ${signo(saldo)}.`)+" Desde ahora sumo y resto lo que anotes ahí.";
+}
+function transfIn(x){
+  const de=x&&cuentaById(x.de)?x.de:"",a=x&&cuentaById(x.a)?x.a:"",monto=Math.round(Number(x&&x.monto));
+  return de&&a&&de!==a&&monto>0?{de,a,monto}:null;
+}
+// respaldo local: "pasé 100 mil de Nequi a efectivo", "saqué 200 mil del cajero", "pagué 500 mil a la tarjeta",
+// "tengo 350 mil en Nequi", "debo 800 mil en la tarjeta", "¿cuánto tengo en Nequi?", "¿cómo están mis cuentas?"
+function localCuentas(text){
+  const t=text.toLowerCase(),cs=cuentasIn(t),monto=parseMonto(t),L=cfg.cuentas.lista;
+  const deTipo=tp=>(L.find(c=>c.tipo===tp)||{}).id,otra=no=>[cfg.cuentas.def,...L.map(c=>c.id)].find(id=>id!==no);
+  const prev=i=>(t.slice(0,i).trim().split(/\s+/).filter(w=>!/^(la|el|mi|mis)$/.test(w)).pop()||"");
+  if(monto>0&&/(saqu[eé]|retir[eé])/.test(t)&&!/meta|ahorr/.test(t)){
+    const de=(cs.find(c=>cuentaById(c.id).tipo!=="efectivo")||{}).id||deTipo("banco")||deTipo("digital"),a=(cs.find(c=>cuentaById(c.id).tipo==="efectivo")||{}).id||deTipo("efectivo");
+    if(de&&a&&de!==a)return {transferencia:{de,a,monto}};
+  }
+  const tj=cs.find(c=>cuentaById(c.id).tipo==="tarjeta");
+  if(monto>0&&tj&&/(pagu[eé]|abon[eé]|pago|pagar)/.test(t)&&!/(con|en)\s+(la\s+|mi\s+)?tarjeta/.test(t)){
+    const de=(cs.find(c=>c.id!==tj.id)||{}).id||[deTipo("banco"),deTipo("digital"),cfg.cuentas.def].find(id=>id&&id!==tj.id);
+    if(de)return {transferencia:{de,a:tj.id,monto}};
+  }
+  if(monto>0&&cs.length&&/(pas[eé]|transfer[ií]|mov[ií]|envi[eé]|recargu[eé]|cargu[eé]|met[ií]|consign[eé])/.test(t)){
+    let de="",a="";
+    for(const c of cs){const w=prev(c.i);if(/^(de|desde|del|con)$/.test(w)&&!de)de=c.id;else if(/^(a|al|para|hacia|en)$/.test(w)&&!a)a=c.id}
+    for(const c of cs){if(c.id===de||c.id===a)continue;if(!de)de=c.id;else if(!a)a=c.id}
+    if(!de&&a)de=otra(a);if(de&&!a)a=otra(de);
+    if(de&&a&&de!==a)return {transferencia:{de,a,monto}};
+  }
+  if(monto>0&&cs.length===1&&!/\?|cu[aá]nto/.test(t)&&/(tengo|hay|me queda|qued[oó]|saldo|debo)/.test(t)){
+    const c=cuentaById(cs[0].id);return {saldoCuenta:{cuenta:c.id,saldo:c.tipo==="tarjeta"&&/debo|deuda|uso|gast/.test(t)?-monto:monto}};
+  }
+  if(!/ahorr|meta/.test(t)){
+    if(cs.length&&/(cu[aá]nto|saldo|c[oó]mo (va|est[aá]))/.test(t))return {respuesta:cs.map(c=>cuentaLine(cuentaById(c.id))).join("\n")+"."};
+    if(/cuentas|cu[aá]nta plata tengo|cu[aá]nto tengo/.test(t))return {respuesta:cuentasSummary()};
+  }
+  return null;
+}
+/* ---------- deudas y préstamos ---------- */
+// cfg.deudas=[{id, tipo:"me" (me deben: yo presté) | "yo" (yo debo: me prestaron), quien, monto, desc, fecha, pagos:[{m,f}]}]
+// No son movimientos: prestar o pagar una deuda no cambia el saldo del mes ni las cuentas.
+function cleanDeudas(l){
+  const f=v=>/^\d{4}-\d{2}-\d{2}$/.test(v||"")?v:today();
+  return (Array.isArray(l)?l:[]).map(d=>{const monto=Math.round(Number(d&&d.monto));
+    return d&&idSafe(d.id)&&monto>0?{id:idSafe(d.id),tipo:d.tipo==="yo"?"yo":"me",quien:String(d.quien||"Alguien").slice(0,30),monto,desc:String(d.desc||"").slice(0,40),fecha:f(d.fecha),
+      pagos:(Array.isArray(d.pagos)?d.pagos:[]).map(p=>({m:Math.round(Number(p&&p.m))||0,f:f(p&&p.f)})).filter(p=>p.m>0)}:null}).filter(Boolean);
+}
+async function saveDeudas(lista){
+  cfg={...cfg,deudas:lista};render();
+  try{if(cfgStore)await cfgStore.doc("deudas").set({lista});else persistCfg();return true}catch(x){return false}
+}
+const pendiente=d=>Math.max(0,d.monto-d.pagos.reduce((s,p)=>s+p.m,0));
+const abiertas=tipo=>cfg.deudas.filter(d=>pendiente(d)>0&&(!tipo||d.tipo===tipo));
+const totalPend=l=>l.reduce((s,d)=>s+pendiente(d),0);
+function deudaLine(d){const p=pendiente(d),pag=d.monto-p;
+  return (d.tipo==="me"?`${d.quien} te debe ${fmt(p)}`:`Le debes ${fmt(p)} a ${d.quien}`)+(d.desc?` (${d.desc})`:"")+(pag>0?`; ya ${d.tipo==="me"?"te pagó":"pagaste"} ${fmt(pag)} de ${fmt(d.monto)}`:"")}
+function deudasSummary(tipo){
+  const me=abiertas("me"),yo=abiertas("yo");
+  if(!me.length&&!yo.length)return "No tienes deudas ni préstamos pendientes. Anótalos así: “le presté 50 mil a Juan” o “le debo 200 mil a mi mamá”.";
+  const a=tipo==="yo"?"":me.length?`Te deben ${fmt(totalPend(me))}:\n`+me.map(d=>"• "+deudaLine(d)).join("\n"):tipo==="me"?"Nadie te debe plata.":"";
+  const b=tipo==="me"?"":yo.length?`Debes ${fmt(totalPend(yo))}:\n`+yo.map(d=>"• "+deudaLine(d)).join("\n"):tipo==="yo"?"No le debes plata a nadie.":"";
+  return [a,b].filter(Boolean).join("\n");
+}
+const sinTilde=s=>s.normalize("NFD").replace(/[̀-ͯ]/g,"");
+function findDeuda(t,tipo){
+  t=sinTilde(t.toLowerCase());const l=abiertas(tipo),q=d=>sinTilde(d.quien.toLowerCase());
+  return l.find(d=>t.includes(q(d)))||l.find(d=>q(d).split(/\s+/).some(w=>w.length>2&&new RegExp("\\b"+escRe(w)+"\\b").test(t)));
+}
+async function addDeuda(c){
+  const d={id:"d"+Date.now().toString(36),tipo:c.tipo,quien:c.quien,monto:c.monto,desc:c.desc||"",fecha:today(),pagos:[]};
+  return await saveDeudas([...cfg.deudas,d])?d:null;
+}
+// monto 0 (o más de lo que falta) = pagó todo; devuelve el texto para el chat
+async function pagarDeuda(id,monto){
+  const d=cfg.deudas.find(x=>x.id===id);if(!d)return "No encontré esa deuda.";
+  const p=pendiente(d);if(!p)return "Esa deuda ya estaba pagada.";
+  const m=monto>0&&monto<p?Math.round(monto):p,nueva={...d,pagos:[...d.pagos,{m,f:today()}]};
+  if(!await saveDeudas(cfg.deudas.map(x=>x.id===id?nueva:x)))return "No pude guardar el pago. Revisa tu conexión e inténtalo otra vez.";
+  const r=pendiente(nueva);
+  if(!r)return d.tipo==="me"?`¡Listo! ${d.quien} ya te pagó todo (${fmt(d.monto)}). Deuda cerrada ✓`:`¡Listo! Ya le pagaste todo a ${d.quien} (${fmt(d.monto)}). Deuda cerrada ✓`;
+  return d.tipo==="me"?`Listo, ${d.quien} te abonó ${fmt(m)}. Todavía te debe ${fmt(r)}.`:`Listo, le abonaste ${fmt(m)} a ${d.quien}. Todavía le debes ${fmt(r)}.`;
+}
+function deudaIn(x){
+  if(x.quitar&&cfg.deudas.some(d=>d.id===x.quitar))return {quitar:x.quitar};
+  if(x.pagar&&cfg.deudas.some(d=>d.id===x.pagar.id))return {pagar:{id:x.pagar.id,monto:Math.max(0,Math.round(Number(x.pagar.monto))||0)}};
+  if(x.crear){const m=Math.round(Number(x.crear.monto)),q=String(x.crear.quien||"").trim().slice(0,30);
+    if(m>0&&q)return {crear:{tipo:x.crear.tipo==="yo"?"yo":"me",quien:q,monto:m,desc:String(x.crear.desc||"").slice(0,40)}}}
+  return null;
+}
+// respaldo local: "le presté 50 mil a Juan", "Juan me debe 30 mil", "le debo 200 mil a mi mamá", "Pedro me prestó 300 mil",
+// "Juan ya me pagó", "le aboné 50 mil a mi mamá", "quita la deuda de Juan", "¿quién me debe?"
+function localDeuda(text){
+  const t=text.toLowerCase();if(/tarjeta/.test(t))return null;
+  const monto=parseMonto(t);
+  if(/(borra|elimina|quita|cancela)\b.*\b(deuda|pr[eé]stamo)/.test(t)){const d=findDeuda(t);return d?{deuda:{quitar:d.id}}:{respuesta:"¿Cuál deuda quieres quitar? "+deudasSummary()}}
+  const pagoMe=/(me pag[oó]|me devolvi[oó]|me abon[oó]|me cancel[oó]|me consign[oó])/.test(t),pagoYo=/(le pagu[eé]|le devolv[ií]|le abon[eé]|le cancel[eé]|le consign[eé])/.test(t);
+  if(pagoMe||pagoYo){const d=findDeuda(t,pagoMe?"me":"yo");if(d)return {deuda:{pagar:{id:d.id,monto:/\b(todo|toda|completo)\b/.test(t)?0:monto}}};
+    return /deuda|prest|debe|debo/.test(t)?{respuesta:"No encontré esa deuda. "+deudasSummary(pagoMe?"me":"yo")}:null}
+  const yo=/(le debo|les debo|me prest[oó]|me prestaron|ped[ií] prestad|\bdebo\b)/.test(t),me=!yo&&/(prest[eé]|me debe|me deben|fi[eé])/.test(t);
+  if((me||yo)&&monto>0){
+    let r=t.replace(/(\d[\d.,]*)\s*(millones?|mill[oó]n|mil|k|lucas?|palos?)?|medio palo|un palo/g," "),desc="";
+    const pm=r.match(/\s(para|por|del|de la|de los)\s+(.+)$/);if(pm){desc=pm[2].replace(/[¿?¡!.,]/g," ").trim().replace(/^(el|la|los|las|un|una)\s+/,"");r=r.slice(0,pm.index)}
+    const quien=r.replace(/[¿?¡!.,]/g," ").replace(/(^|\s)(le|les|me|te|yo|prest[eé]|prest[oó]|prestaron|prestado|prestada|ped[ií]|debe|deben|debo|fi[eé]|a|al|mi|mis|de|la|el|los|las|un|una|plata|pesos|hoy|ayer|antier|que|ya|lo|y|en|como|tengo|anota)(?=\s|$)/g," ")
+      .replace(/\s+/g," ").trim().split(" ").filter(Boolean).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").slice(0,30);
+    if(!quien)return {respuesta:"¿Con quién es la deuda? Dímelo así: “le presté 50 mil a Juan” o “le debo 200 mil a mi mamá”."};
+    return {deuda:{crear:{tipo:me?"me":"yo",quien,monto,desc:desc?desc.charAt(0).toUpperCase()+desc.slice(1):""}}};
+  }
+  if(/qui[eé]n me debe|me deben/.test(t))return {respuesta:deudasSummary("me")};
+  if(/a qui[eé]n le debo|cu[aá]nto debo|le debo/.test(t))return {respuesta:deudasSummary("yo")};
+  if(/deudas?|pr[eé]stamos?/.test(t))return {respuesta:deudasSummary()};
+  return null;
+}
+/* ---------- recordatorio diario ---------- */
+// cfg.recordatorio={on, hora "HH:MM"}. Si a esa hora no has anotado nada hoy, aparece en el chat (con la app abierta o al abrirla).
+// En la versión instalable además manda una notificación: desde la página si sigue abierta y desde sw.js con sincronización periódica.
+// En Claude no hay notificaciones del sistema.
+function cleanRec(r){const m=String(r&&r.hora||"").match(/^(\d{1,2}):(\d{2})$/),ok=m&&+m[1]<24&&+m[2]<60;
+  return {on:!!(r&&r.on),hora:ok?String(m[1]).padStart(2,"0")+":"+m[2]:"21:00"}}
+async function saveRec(r){
+  cfg={...cfg,recordatorio:r};render();revisarRecordatorio();
+  try{if(cfgStore)await cfgStore.doc("recordatorio").set(r);else persistCfg();return true}catch(x){return false}
+}
+const horaTxt=h=>{const [a,b]=h.split(":").map(Number);return (a%12||12)+(b?":"+pad(b):"")+(a<12?" a. m.":" p. m.")};
+const anotoHoy=()=>items.some(x=>!String(x.msg||"").startsWith("fijos-")&&x.t&&iso(new Date(x.t))===today());
+const puedeNotificar=()=>!window.claude&&"Notification" in window&&"serviceWorker" in navigator;
+let recTimer=null;
+function revisarRecordatorio(){
+  clearTimeout(recTimer);guardarEstadoSW();const r=cfg.recordatorio;
+  registrarSync(r.on&&puedeNotificar()&&Notification.permission==="granted");
+  if(!r.on)return;
+  const [h,m]=r.hora.split(":").map(Number),now=new Date(),at=new Date();at.setHours(h,m,0,0);
+  if(now<at){recTimer=setTimeout(revisarRecordatorio,at-now+1000);return}
+  const manana=new Date(at);manana.setDate(manana.getDate()+1);recTimer=setTimeout(revisarRecordatorio,manana-now+1000);
+  let visto="";try{visto=localStorage.getItem("mis-cuentas-recordado")||""}catch(x){}
+  if(visto===today()||anotoHoy())return;
+  try{localStorage.setItem("mis-cuentas-recordado",today())}catch(x){}
+  live.push({kind:"bot",cls:"warn",text:"¿Anotaste tus gastos de hoy? Cuéntame qué gastaste y yo lo anoto.",t:Date.now()});renderChat();
+  if(document.hidden&&puedeNotificar()&&Notification.permission==="granted")
+    navigator.serviceWorker.ready.then(reg=>reg.showNotification("¿Anotaste tus gastos de hoy?",{body:"Cuéntame qué gastaste y lo anoto en Mis Cuentas.",icon:"icons/icon-192.png",tag:"recordatorio"})).catch(()=>{});
+}
+// la versión instalable le deja al service worker lo que necesita para avisar con la app cerrada
+function guardarEstadoSW(){
+  if(window.claude||!("caches" in window)||location.protocol==="file:")return;
+  const ult=items.filter(x=>!String(x.msg||"").startsWith("fijos-")).reduce((m,x)=>Math.max(m,x.t||0),0);
+  caches.open("mis-cuentas-estado").then(async c=>{const old=await c.match("estado.json").then(r=>r&&r.json()).catch(()=>null);
+    await c.put("estado.json",new Response(JSON.stringify({...(old||{}),...cfg.recordatorio,ultimo:ult?iso(new Date(ult)):""}),{headers:{"Content-Type":"application/json"}}))}).catch(()=>{});
+}
+function registrarSync(on){
+  if(window.claude||!("serviceWorker" in navigator))return;
+  navigator.serviceWorker.getRegistration().then(async reg=>{if(!reg||!reg.periodicSync)return;
+    if(!on)return reg.periodicSync.unregister("recordatorio");
+    const st=await navigator.permissions.query({name:"periodic-background-sync"});
+    if(st.state==="granted")await reg.periodicSync.register("recordatorio",{minInterval:60*60*1000})}).catch(()=>{});
+}
+async function activarNotif(){
+  if(!puedeNotificar())return "Este navegador no deja mandar notificaciones. Te lo recuerdo en el chat al abrir la app.";
+  const p=await Notification.requestPermission().catch(()=>"denied");render();
+  if(p!=="granted")return "Sin permiso no puedo mandarte notificaciones. Te lo recuerdo en el chat al abrir la app, y puedes agregarlo a tu calendario.";
+  revisarRecordatorio();
+  return `Listo, te aviso con una notificación a las ${horaTxt(cfg.recordatorio.hora)} los días que no hayas anotado nada. El celular a veces la demora; si quieres que llegue puntual, agrégalo también a tu calendario.`;
+}
+function icsRecordatorio(){
+  const [h,m]=cfg.recordatorio.hora.split(":"),now=new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z";
+  return ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Mis Cuentas//ES","BEGIN:VEVENT","UID:recordatorio-diario@mis-cuentas","DTSTAMP:"+now,
+    `DTSTART:${today().replace(/-/g,"")}T${h}${m}00`,"DURATION:PT5M","RRULE:FREQ=DAILY","SUMMARY:¿Anotaste tus gastos de hoy?",
+    "DESCRIPTION:Abre Mis Cuentas y cuéntale lo que gastaste hoy.","URL:"+location.href.split(/[?#]/)[0],
+    "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:¿Anotaste tus gastos de hoy?","TRIGGER:PT0M","END:VALARM","END:VEVENT","END:VCALENDAR"].join("\r\n");
+}
+// "a las 9", "9 pm", "8:30 de la noche", "21:00"; sin a. m./p. m. y antes de las 12 se entiende de noche
+function horaIn(t){
+  const m=t.match(/(\d{1,2})(?:[:.h](\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?|de la (?:noche|tarde|ma[ñn]ana))/)||t.match(/(?:a las|a la|las)\s+(\d{1,2})(?:[:.h](\d{2}))?/)||t.match(/\b(\d{1,2}):(\d{2})\b/);
+  if(!m)return "";let h=+m[1];const mi=+(m[2]||0),suf=m[3]||"";if(h>23||mi>59)return "";
+  if(/p|noche|tarde/.test(suf)){if(h<12)h+=12}else if(suf){if(h===12)h=0}else if(h>=1&&h<=11)h+=12;
+  return pad(h)+":"+pad(mi);
+}
+function localRecordatorio(text){
+  const t=text.toLowerCase();if(!/record[aá]|recu[eé]rd|av[ií]s[aá]me|notific/.test(t))return null;
+  if(/(quita|desactiva|apaga|cancela|ya no|no me)/.test(t))return {recordatorio:{on:false,hora:cfg.recordatorio.hora}};
+  const h=horaIn(t);
+  if(h||/(activa|pon|prende|quiero|recu[eé]rdame|av[ií]same)/.test(t))return {recordatorio:{on:true,hora:h||cfg.recordatorio.hora}};
+  return {respuesta:cfg.recordatorio.on?`Tu recordatorio está a las ${horaTxt(cfg.recordatorio.hora)} todos los días. Para cambiarlo dime “recuérdame a las 8 pm”.`:"No tienes recordatorio. Dime “recuérdame anotar a las 9 pm” y te pregunto cada noche."};
+}
+/* ---------- copia de seguridad: pasar los datos entre Mis Cuentas en Claude y la versión instalable ---------- */
+// Un .json con los movimientos (con su id, para no duplicarlos) y los ajustes. Al cargarla solo se agrega lo que no hay aquí.
+function copiaJson(){
+  const {recordatorio,...ajustes}=cfg; // el recordatorio es de cada dispositivo
+  return JSON.stringify({app:"mis-cuentas",version:1,exportado:new Date().toISOString(),movimientos:items,ajustes});
+}
+async function exportCopia(){
+  const name=`mis-cuentas-copia-${today()}.json`,r=await saveFile(new Blob([copiaJson()],{type:"application/json"}),name);
+  return r==="ok"?`Listo, guardé ${name} con ${items.length} ${items.length===1?"movimiento":"movimientos"} y tus ajustes. En la otra versión ábrela con “Cargar copia”, en el Resumen; te digo qué trae antes de agregar nada.`
+    :r==="declined"?"Bueno, no guardé la copia.":r==="busy"?"Ya hay una descarga esperando tu confirmación.":"No pude guardar la copia. Inténtalo otra vez.";
+}
+// un movimiento de la copia, validado; conserva id, hora y cuenta para que no se duplique ni cambie de cuenta
+function recIn(x){
+  if(!x||typeof x!=="object")return null;const id=String(x.id||"").replace(/[^\w-]/g,"").slice(0,60),m=clean({...x,cuenta:""});
+  if(!id||!m||!/^\d{4}-\d{2}-\d{2}$/.test(x.fecha||""))return null;
+  const r={id,...m,t:Number(x.t)||Date.parse(x.fecha+"T12:00"),msg:String(x.msg||id).slice(0,60),texto:String(x.texto||"").slice(0,300)};
+  if(idSafe(x.cuenta))r.cuenta=idSafe(x.cuenta);
+  return r;
+}
+const unir=(actual,otros)=>{const ids=new Set(actual.map(x=>x.id)),add=otros.filter(x=>!ids.has(x.id));return [actual.concat(add),add.length]};
+// lo que queda al juntar los ajustes de la copia con los de aquí (aquí manda; solo se agrega lo que falta)
+function planCopia(aj){
+  const out={},n={};
+  out.presupuestos={...aj.presupuestos,...cfg.presupuestos};n.presupuestos=Object.keys(out.presupuestos).length-Object.keys(cfg.presupuestos).length;
+  for(const k of ["fijos","metas","deudas","transf"])[out[k],n[k]]=unir(cfg[k],aj[k]);
+  const [l,nc]=unir(cfg.cuentas.lista,aj.cuentas?aj.cuentas.lista:[]);
+  // si aquí una cuenta aún no tiene saldo inicial y en la copia sí, se toma el de la copia
+  out.cuentas={...cfg.cuentas,lista:l.map(c=>{const o=aj.cuentas&&aj.cuentas.lista.find(x=>x.id===c.id);return !c.inicial&&o&&o.inicial?{...c,inicial:o.inicial}:c})};
+  n.cuentas=nc+out.cuentas.lista.filter((c,k)=>k<cfg.cuentas.lista.length&&c.inicial!==cfg.cuentas.lista[k].inicial).length;
+  return {out,n};
+}
+async function leerCopia(file){
+  let d=null;try{d=JSON.parse(await file.text())}catch(x){}
+  if(!d||d.app!=="mis-cuentas"||!Array.isArray(d.movimientos)){
+    live.push({kind:"bot",text:"Ese archivo no es una copia de Mis Cuentas. Busca el que se llama mis-cuentas-copia-(fecha).json.",t:Date.now()});renderChat();$("chat").scrollTop=$("chat").scrollHeight;return}
+  const a=d.ajustes||{},recs=d.movimientos.map(recIn).filter(Boolean),ya=new Set(items.map(x=>x.id));
+  const e={kind:"copia",id:"cp"+Date.now().toString(36),t:Date.now(),fecha:d.exportado,total:recs.length,nuevos:recs.filter(x=>!ya.has(x.id)),
+    aj:{presupuestos:cleanBudgets(a.presupuestos),fijos:cleanFijos(a.fijos),metas:cleanMetas(a.metas),deudas:cleanDeudas(a.deudas),transf:cleanTransf(a.transf),cuentas:a.cuentas?cleanCuentas(a.cuentas):null}};
+  const n=planCopia(e.aj).n;
+  if(!e.nuevos.length&&!Object.values(n).some(Boolean))live.push({kind:"bot",text:`Ya tienes todo lo que trae esa copia (${recs.length} movimientos). No hay nada que agregar.`,t:Date.now()});
+  else live.push(e);
+  renderChat();$("chat").scrollTop=$("chat").scrollHeight;
+}
+function copiaHtml(e){
+  const {n}=planCopia(e.aj),f=e.fecha&&!isNaN(Date.parse(e.fecha))?new Date(e.fecha).toLocaleDateString("es-CO",{day:"numeric",month:"long"}):"";
+  const ext=[[n.cuentas,"cambio en cuentas","cambios en cuentas"],[n.metas,"meta","metas"],[n.deudas,"deuda","deudas"],[n.fijos,"fijo","fijos"],[n.presupuestos,"presupuesto","presupuestos"],[n.transf,"paso de plata entre cuentas","pasos de plata entre cuentas"]]
+    .filter(x=>x[0]>0).map(([k,s,p])=>k+" "+(k===1?s:p));
+  return `<div class="b bot" data-cid="${esc(e.id)}"><b>Copia${f?" del "+esc(f):""}.</b> Trae ${e.total} movimientos y ${e.nuevos.length} son nuevos aquí; los que ya tienes no se repiten.${ext.length?" También trae "+esc(ext.join(", "))+".":""} ¿Los agrego?<div class="fact"><div class="acts"><button type="button" data-cno>Cancelar</button><button type="button" class="ok" data-cok>Agregar</button></div></div><time>${hhmm(e.t)}</time></div>`;
+}
+async function aplicarCopia(e){
+  live=live.filter(x=>x!==e);
+  const {out,n}=planCopia(e.aj),ya=new Set(items.map(x=>x.id)),nuevos=e.nuevos.filter(x=>!ya.has(x.id));let fails=0;
+  items=[...items,...nuevos];render();
+  for(const {id,...rec} of nuevos){try{if(store)await store.doc(id).set(rec)}catch(x){fails++}}
+  if(!store)persistLocal();
+  if(n.presupuestos){cfg={...cfg,presupuestos:out.presupuestos};try{if(cfgStore)await cfgStore.doc("presupuestos").set(out.presupuestos);else persistCfg()}catch(x){fails++}}
+  if(n.cuentas&&!await saveCuentas(out.cuentas))fails++;
+  if(n.fijos&&!await saveFijos(out.fijos))fails++;
+  if(n.metas&&!await saveMetas(out.metas))fails++;
+  if(n.deudas&&!await saveDeudas(out.deudas))fails++;
+  if(n.transf&&!await saveTransf(out.transf))fails++;
+  await runFijos();
+  live.push({kind:"bot",text:fails?"Agregué una parte, pero algo no se guardó. Revisa tu conexión y carga la copia otra vez: lo que ya quedó no se repite."
+    :`Listo, agregué ${nuevos.length} ${nuevos.length===1?"movimiento":"movimientos"} de la copia`+(Object.entries(n).some(([k,v])=>v)?" y tus ajustes":"")+". Ya tienes todo junto aquí.",t:Date.now()});
+  render();$("chat").scrollTop=$("chat").scrollHeight;
+}
+function localCopia(text){
+  const t=text.toLowerCase();if(!/copia|respaldo|backup/.test(t))return null;
+  return {copia:/(carg|import|restaur|sub[ei]|abr[eiao])/.test(t)?"cargar":"guardar"};
+}
 /* ---------- comparar meses ---------- */
 const prevYm=ym=>ymOf(new Date(+ym.slice(0,4),+ym.slice(5,7)-2,1));
 function pctCambio(a,b){return b?Math.round((a-b)/b*100):null}
@@ -515,10 +900,10 @@ function sheetXml(rows,widths){
 }
 function buildXlsx(){
   const movs=[...items].sort((a,b)=>a.fecha.localeCompare(b.fecha)||(a.t||0)-(b.t||0));
-  const hoja1=[["Fecha","Tipo","Categoría","Descripción","Monto"],...movs.map(x=>[{d:x.fecha},x.tipo==="i"?"Ingreso":"Gasto",x.cat,x.desc||"",x.tipo==="i"?x.monto:-x.monto])];
+  const hoja1=[["Fecha","Tipo","Categoría","Descripción","Cuenta","Monto"],...movs.map(x=>[{d:x.fecha},x.tipo==="i"?"Ingreso":"Gasto",x.cat,x.desc||"",cuentaNombre(cuentaDe(x)),x.tipo==="i"?x.monto:-x.monto])];
   const meses=[...new Set(movs.map(x=>x.fecha.slice(0,7)))].sort();
   const hoja2=[["Mes","Ingresos","Gastos","Saldo",...CATS.g],...meses.map(ym=>{const s=monthStats(ym);return [ym,s.tin,s.tout,s.tin-s.tout,...CATS.g.map(c=>s.byCat[c]||0)]})];
-  const sheets=[["Movimientos",sheetXml(hoja1,[12,10,16,32,14])],["Resumen por mes",sheetXml(hoja2,[10,14,14,14,...CATS.g.map(()=>14)])]];
+  const sheets=[["Movimientos",sheetXml(hoja1,[12,10,16,32,16,14])],["Resumen por mes",sheetXml(hoja2,[10,14,14,14,...CATS.g.map(()=>14)])]];
   const ns='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
   return zip([
     ["[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_,k)=>`<Override PartName="/xl/worksheets/sheet${k+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`],
@@ -533,21 +918,26 @@ let downloadsP=Promise.resolve(null);
 // devuelve el texto para el usuario
 async function exportXlsx(){
   if(!items.length)return "Aún no tienes movimientos para exportar.";
-  const blob=buildXlsx(),name=`mis-cuentas-${today()}.xlsx`,dl=await downloadsP;
-  if(dl){try{await dl.save({filename:name,data:blob});return `Listo, te mandé el archivo ${name} con ${items.length} movimientos.`}
-    catch(e){if(e&&e.code==="declined")return "Bueno, no descargué el archivo.";if(e&&e.code==="rate_limited")return "Ya hay una descarga esperando tu confirmación.";if(e&&!["unavailable","not_granted","capability_disabled","capability_removed"].includes(e.code))return "No pude descargar el archivo. Inténtalo otra vez."}}
-  try{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);return `Listo, descargué ${name} con ${items.length} movimientos.`}
-  catch(x){return "No pude descargar el archivo en este navegador."}
+  const name=`mis-cuentas-${today()}.xlsx`,r=await saveFile(buildXlsx(),name);
+  return r==="ok"?`Listo, descargué ${name} con ${items.length} movimientos.`:r==="declined"?"Bueno, no descargué el archivo.":r==="busy"?"Ya hay una descarga esperando tu confirmación.":"No pude descargar el archivo. Inténtalo otra vez.";
+}
+// en Claude, con la capacidad downloads; si no, con un enlace de descarga. Devuelve "ok", "declined", "busy" o "error"
+async function saveFile(blob,name){
+  const dl=await downloadsP;
+  if(dl){try{await dl.save({filename:name,data:blob});return "ok"}
+    catch(e){if(e&&e.code==="declined")return "declined";if(e&&e.code==="rate_limited")return "busy";if(e&&!["unavailable","not_granted","capability_disabled","capability_removed"].includes(e.code))return "error"}}
+  try{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);return "ok"}
+  catch(x){return "error"}
 }
 async function addRecords(movs,texto,opt={}){
   const msg=opt.msg||"c"+Date.now().toString(36);const base=Date.now();let fails=0;
   for(let k=0;k<movs.length;k++){
-    const r=movs[k];const rec={tipo:r.tipo,monto:r.monto,cat:r.cat,desc:r.desc||"",fecha:r.fecha,t:base+k,msg,texto:k===0?texto:""};
+    const r=movs[k];const rec={tipo:r.tipo,monto:r.monto,cat:r.cat,desc:r.desc||"",fecha:r.fecha,t:base+k,msg,texto:k===0?texto:"",cuenta:r.cuenta&&cuentaById(r.cuenta)?r.cuenta:cfg.cuentas.def};
     const id=opt.ids?opt.ids[k]:"m"+base.toString(36)+k+Math.random().toString(36).slice(2,5);
     items=[...items.filter(x=>x.id!==id),{id,...rec}];
     try{if(store)await store.doc(id).set(rec);else persistLocal()}catch(x){fails++}
   }
-  render();return fails;
+  render();guardarEstadoSW();return fails;
 }
 async function removeIds(ids){
   items=items.filter(x=>!ids.includes(x.id));render();
@@ -560,33 +950,40 @@ async function setCat(id,cat){
   const {id:_,...rec}=items.find(r=>r.id===id);
   try{if(store)await store.doc(id).set(rec);else persistLocal();return true}catch(e){return false}
 }
+async function setCuenta(id,cuenta){
+  const x=items.find(r=>r.id===id);if(!x||!cuentaById(cuenta)||cuentaDe(x)===cuenta)return true;
+  items=items.map(r=>r.id===id?{...r,cuenta}:r);render();
+  const {id:_,...rec}=items.find(r=>r.id===id);
+  try{if(store)await store.doc(id).set(rec);else persistLocal();return true}catch(e){return false}
+}
 
 /* ---------- entender mensajes ---------- */
 function clean(m){
   const tp=m&&m.tipo==="i"?"i":"g";const monto=Math.round(Number(m&&m.monto));
   if(!(monto>0))return null;
   return {tipo:tp,monto,cat:CATS[tp].includes(m.cat)?m.cat:"Otros",desc:String(m.desc||"").slice(0,60),
-    fecha:/^\d{4}-\d{2}-\d{2}$/.test(m.fecha||"")?m.fecha:today()};
+    fecha:/^\d{4}-\d{2}-\d{2}$/.test(m.fecha||"")?m.fecha:today(),...(m.cuenta&&cuentaById(m.cuenta)?{cuenta:m.cuenta}:{})};
 }
 const KW={Comida:/almuer|comida|desayun|cena|mercado|restaur|caf[eé]|pan|fruta|super|onces/,Transporte:/moto|taxi|bus|gasolin|uber|pasaje|transporte|peaje/,
-  Vivienda:/arriendo|alquiler|casa|hipoteca/,Servicios:/luz|agua|gas|internet|celular|plan|servicio|netflix|spotify/,Salud:/droguer|medic|farmac|doctor|cita|eps/,
+  Vivienda:/arriendo|alquiler|casa|hipoteca/,Servicios:/luz|agua|\bgas\b|internet|celular|plan|servicio|netflix|spotify/,Salud:/droguer|medic|farmac|doctor|cita|eps/,
   Entretenimiento:/cine|fiesta|salida|juego|cerveza|trago|concierto|ocio|rumba/,Ropa:/ropa|zapat|tenis|camisa/,Educación:/curso|libro|matr[ií]cula|universidad|maestr/,
   Salario:/salario|sueldo|quincena|n[oó]mina/,Clientes:/cliente|asesor|entrenamiento|sesi[oó]n/,Ventas:/vend|venta/,Regalo:/regal/};
 const INC=/(recib|gan[eé]|ingres|me pag|cobr|vend|me lleg|me consign|me dieron)/;
 function localParse(text){
   const t=text.toLowerCase();const out=[];
   const fecha=/antier|anteayer/.test(t)?isoOffset(-2):/ayer/.test(t)?isoOffset(-1):today();
-  let tipo=INC.test(t)?"i":"g";
+  let tipo=INC.test(t)?"i":"g";const todas=cuentasIn(t);
   for(const p of t.split(/\s*(?:,|;|\by\b(?=[^\d]*\d))\s*/).filter(Boolean)){
+    const cp=cuentasIn(p),cuenta=(cp[0]||todas[0]||{}).id;
     const mm=p.match(/(\d[\d.,]*)\s*(millones?|mill[oó]n|mil|k|lucas?|palos?)?/);if(!mm)continue;
     let n=Number(mm[1].replace(/[.,](?=\d{3}\b)/g,"").replace(",","."));
     const u=mm[2]||"";if(/mill|palo/.test(u))n*=1e6;else if(/mil|k|luca/.test(u))n*=1000;
     if(INC.test(p))tipo="i";else if(/(gast|pagu|compr)/.test(p))tipo="g";
     let cat="Otros";for(const c of CATS[tipo])if(KW[c]&&KW[c].test(p)){cat=c;break}
-    let desc=p.replace(mm[0]," ");
+    let desc=sinCuenta(p.replace(mm[0]," "),cp);
     for(let k=0;k<2;k++)desc=desc.replace(/(^|\s)(gast[eé]|pagu[eé]|pag[oó]|compr[eé]|en|de|del|el|la|por|me|un|una|recib[ií]|hoy|ayer|pesos)(?=\s|$)/g," ");
     desc=desc.replace(/\s+/g," ").trim();
-    const r=clean({tipo,monto:n,cat,desc:desc.charAt(0).toUpperCase()+desc.slice(1),fecha});if(r)out.push(r);
+    const r=clean({tipo,monto:n,cat,desc:desc.charAt(0).toUpperCase()+desc.slice(1),fecha,cuenta});if(r)out.push(r);
   }
   return out;
 }
@@ -691,10 +1088,13 @@ Datos del usuario:
 - Presupuestos mensuales por categoría de gasto (tope en pesos): ${JSON.stringify(cfg.presupuestos)}
 - Gastos/ingresos fijos que se anotan solos cada mes: ${JSON.stringify(cfg.fijos.map(f=>({id:f.id,tipo:f.tipo,monto:f.monto,cat:f.cat,desc:f.desc,dia:f.dia})))}
 - Metas de ahorro (aportes negativos = lo que sacó): ${JSON.stringify(cfg.metas.map(m=>({id:m.id,nombre:m.nombre,objetivo:m.objetivo,limite:m.limite,ahorrado:ahorrado(m)})))}
+- Cuentas donde tiene la plata, con su saldo de hoy (la principal es "${cfg.cuentas.def}"; en tarjeta de crédito un saldo negativo es lo que debe): ${JSON.stringify(cfg.cuentas.lista.map(c=>({id:c.id,nombre:c.nombre,tipo:c.tipo,saldo:saldoCuenta(c.id)})))}
+- Deudas y préstamos pendientes (tipo "me" = le deben a él; "yo" = él debe): ${JSON.stringify(abiertas().map(d=>({id:d.id,tipo:d.tipo,quien:d.quien,pendiente:pendiente(d),prestado:d.monto,desc:d.desc,fecha:d.fecha})))}
+- Recordatorio diario para anotar gastos: ${cfg.recordatorio.on?"a las "+cfg.recordatorio.hora:"apagado"}
 - Últimos movimientos (el primero es el último registrado): ${JSON.stringify(ult)}
 
 Según el mensaje, haz UNA de estas cosas:
-1. Si registra gastos o ingresos: ponlos en "movimientos" (tipo "g" gasto o "i" ingreso; fechas relativas a YYYY-MM-DD, si no dice usa hoy; "desc" corta con mayúscula inicial). "respuesta" puede ir vacía.
+1. Si registra gastos o ingresos: ponlos en "movimientos" (tipo "g" gasto o "i" ingreso; fechas relativas a YYYY-MM-DD, si no dice usa hoy; "desc" corta con mayúscula inicial, sin la cuenta; "cuenta" = id de la cuenta si dice con qué pagó o dónde le entró, por ejemplo "con Nequi", "en efectivo", "con la tarjeta"; si no lo dice, ""). "respuesta" puede ir vacía.
 2. Si pregunta algo sobre sus cuentas: responde en "respuesta" usando solo los datos de arriba.
 3. Si pide borrar o deshacer el último movimiento: "borrarUltimo": true.
 4. Si pide cambiar la categoría del último movimiento: "cambiarUltimo" con el nombre exacto de la nueva categoría (del mismo tipo que ese movimiento).
@@ -702,10 +1102,16 @@ Según el mensaje, haz UNA de estas cosas:
 6. Si crea un gasto o ingreso FIJO que se repite cada mes (arriendo, servicios, suscripciones, sueldo), por ejemplo "arriendo fijo 1 palo el 5 de cada mes" o "netflix 45 mil cada mes": "fijo" con {"crear": {"tipo","monto","cat","desc","dia": día del mes 1-31; si no lo dice, el de hoy}}. Si pide quitar uno: "fijo" con {"quitar": id del fijo}. Eso NO es un movimiento: no lo pongas en "movimientos" (la app lo anota sola el día que toca).
 7. Si crea una meta de ahorro ("meta ahorrar 2 palos para diciembre", "quiero ahorrar 3 millones para una moto"): "meta" con {"crear": {"nombre": corto con mayúscula inicial, "objetivo": pesos, "limite": "YYYY-MM" del mes límite o ""}}. Si dice que ahorró o abonó plata a una meta ("ahorré 200 mil para la moto"): {"abonar": {"id": id de la meta, "monto": pesos}}; si sacó plata de una meta, monto negativo. Si pide quitar una meta: {"quitar": id}. Los abonos NO son gastos: no los pongas en "movimientos".
 8. Si pide exportar o descargar sus datos a Excel: "exportar": true.
-9. Si no entiendes: pide en "respuesta" que lo diga de otra forma, con un ejemplo.
+9. Si pasa plata entre sus cuentas ("pasé 100 mil de Nequi a efectivo", "saqué 200 mil del cajero" = de banco a efectivo, "pagué 500 mil a la tarjeta" = de banco o la que diga a la tarjeta): "transferencia" con {"de": id, "a": id, "monto"}. NO es gasto ni ingreso.
+10. Si dice cuánta plata tiene hoy en una cuenta ("tengo 350 mil en Nequi", "debo 800 mil en la tarjeta" = saldo negativo): "saldoCuenta" con {"cuenta": id, "saldo": pesos}.
+11. Si presta o le prestan plata, o alguien le debe ("le presté 50 mil a Juan", "le debo 200 mil a mi mamá", "Pedro me prestó 300 mil"): "deuda" con {"crear": {"tipo": "me" si le deben a él o "yo" si él debe, "quien": nombre corto con mayúscula inicial, "monto", "desc": para qué, o ""}}. Si le pagan o paga una deuda pendiente ("Juan ya me pagó", "le aboné 50 mil a mi mamá"): {"pagar": {"id": id de la deuda, "monto": pesos, o 0 si pagó todo}}. Si pide quitar una: {"quitar": id}. Las deudas NO son movimientos. Ojo: "me pagó un cliente" es un ingreso normal, salvo que sea alguien con una deuda pendiente.
+12. Si pide que le recuerden anotar sus gastos cada día, cambiar la hora o quitar el recordatorio: "recordatorio" con {"on": true o false, "hora": "HH:MM" en 24 horas; si dice "a las 9" sin más, es de noche: "21:00"; si no dice hora, la que ya tiene o "21:00"}.
+13. Si pide una copia de seguridad para pasar sus datos a la otra versión de la app: "copia": "guardar"; si quiere cargar o importar una copia: "copia": "cargar".
+14. Si no entiendes: pide en "respuesta" que lo diga de otra forma, con un ejemplo.
+Si pregunta por sus cuentas o cuánta plata tiene, usa los saldos de las cuentas. Si pregunta quién le debe o a quién le debe, usa las deudas pendientes.
 Si pide comparar con el mes pasado, compara gastos totales y por categoría de los dos meses (diferencia en pesos y en %), teniendo en cuenta que el mes actual puede no haber terminado. Si pregunta por sus metas, di cuánto lleva, cuánto falta y cuánto necesita ahorrar al mes para llegar a tiempo.
 Si pregunta cómo va con sus presupuestos, compara lo gastado este mes en cada categoría con su tope y dile cuánto le queda o cuánto se pasó.
-Responde SOLO con JSON: {"movimientos":[],"respuesta":"","borrarUltimo":false,"cambiarUltimo":"","presupuesto":null,"fijo":null,"meta":null,"exportar":false}
+Responde SOLO con JSON: {"movimientos":[],"respuesta":"","borrarUltimo":false,"cambiarUltimo":"","presupuesto":null,"fijo":null,"meta":null,"exportar":false,"transferencia":null,"saldoCuenta":null,"deuda":null,"recordatorio":null,"copia":""}
 
 Mensaje: """${text}"""`;
   const r=await s.json(prompt,{modelTier:"quick",cache:false});
@@ -713,6 +1119,10 @@ Mensaje: """${text}"""`;
     respuesta:r&&typeof r.respuesta==="string"?r.respuesta:"",borrarUltimo:!!(r&&r.borrarUltimo),
     cambiarUltimo:r&&typeof r.cambiarUltimo==="string"?r.cambiarUltimo:"",
     meta:r&&r.meta?metaIn(r.meta):null,exportar:!!(r&&r.exportar),
+    transferencia:r&&r.transferencia?transfIn(r.transferencia):null,deuda:r&&r.deuda?deudaIn(r.deuda):null,
+    saldoCuenta:r&&r.saldoCuenta&&cuentaById(r.saldoCuenta.cuenta)&&Number.isFinite(Number(r.saldoCuenta.saldo))?{cuenta:r.saldoCuenta.cuenta,saldo:Math.round(Number(r.saldoCuenta.saldo))}:null,
+    recordatorio:r&&r.recordatorio&&typeof r.recordatorio==="object"?cleanRec({hora:cfg.recordatorio.hora,...r.recordatorio}):null,
+    copia:r&&(r.copia==="guardar"||r.copia==="cargar")?r.copia:"",
     fijo:r&&r.fijo?(r.fijo.quitar&&cfg.fijos.some(f=>f.id===r.fijo.quitar)?{quitar:r.fijo.quitar}:r.fijo.crear?fijoIn(r.fijo.crear):null):null,
     presupuesto:r&&r.presupuesto&&CATS.g.includes(r.presupuesto.cat)?{cat:r.presupuesto.cat,monto:Math.max(0,Math.round(Number(r.presupuesto.monto)||0))}:null};
 }
@@ -729,12 +1139,14 @@ function welcome(){
   <button type="button" data-ex="Presupuesto comida 600 mil">Presupuesto comida 600 mil</button>
   <button type="button" data-ex="Arriendo fijo 1 palo el 5 de cada mes">Arriendo fijo 1 palo el 5 de cada mes</button>
   <button type="button" data-ex="Meta ahorrar 2 palos para diciembre">Meta ahorrar 2 palos para diciembre</button>
+  <button type="button" data-ex="Le presté 50 mil a Juan">Le presté 50 mil a Juan</button>
+  <button type="button" data-ex="Pasé 100 mil de Nequi a efectivo">Pasé 100 mil de Nequi a efectivo</button>
   <button type="button" data-ex="Compara con el mes pasado">Compara con el mes pasado</button></div>${pwaNote()}${camOk?`<p style="margin:8px 0 0">¿Tienes la factura a mano? Tócale el botón de la cámara y yo la leo.</p>`:""}</div>`;
 }
 // aviso de la versión instalable: sin la cuenta de Claude, todo queda en este dispositivo y se entiende con el respaldo local
 function pwaNote(){
   if(window.claude)return "";
-  let t="Esta es la versión instalable: funciona sin internet y tus cuentas quedan guardadas solo en este dispositivo. Entiendo frases sencillas como las de arriba; para leer fotos de facturas usa Mis Cuentas en Claude.";
+  let t="Esta es la versión instalable: funciona sin internet y tus cuentas quedan guardadas solo en este dispositivo. Entiendo frases sencillas como las de arriba; para leer fotos de facturas usa Mis Cuentas en Claude. Para pasar tus datos entre las dos, usa “Copia de seguridad” en el Resumen.";
   if(iosTip())t+=" Para tenerla en tu pantalla de inicio, toca Compartir y luego “Agregar a inicio”.";
   return `<p class="hint" style="margin:8px 0 0">${esc(t)}</p>`;
 }
@@ -750,10 +1162,11 @@ function renderChat(){
     const dl=dayLabel(e.t);if(dl!==lastDay){html+=`<div class="day">${esc(dl)}</div>`;lastDay=dl}
     if(e.kind==="rec"){
       if(e.texto)html+=`<div class="b me">${esc(e.texto)}<time>${hhmm(e.t)}</time></div>`;
-      const li=e.recs.map(r=>`<li><span>${esc(r.desc||r.cat)}<br><small>${esc(r.cat)} · ${shortDate(r.fecha)}</small></span><span class="a ${r.tipo}">${r.tipo==="i"?"+":"−"}${fmt(r.monto)}</span></li>`).join("");
+      const li=e.recs.map(r=>`<li><span>${esc(r.desc||r.cat)}<br><small>${esc(r.cat)} · ${shortDate(r.fecha)}${varias()?" · "+esc(cuentaNombre(cuentaDe(r))):""}</small></span><span class="a ${r.tipo}">${r.tipo==="i"?"+":"−"}${fmt(r.monto)}</span></li>`).join("");
       html+=`<div class="b bot">${String(e.k).startsWith("fijos-")?"Anoté tus fijos ✓":"Anotado ✓"}<ul>${li}</ul><button class="undo" type="button" data-undo="${esc(e.k)}">Deshacer</button><time>${hhmm(e.t+1)}</time></div>`;
     }else if(e.kind==="me"){html+=`<div class="b me">${esc(e.text)}<time>${hhmm(e.t)}</time></div>`}
-    else if(e.kind==="bot"){html+=`<div class="b bot${e.cls?" "+e.cls:""}">${esc(e.text)}<time>${hhmm(e.t)}</time></div>`}
+    else if(e.kind==="bot"){html+=`<div class="b bot${e.cls?" "+e.cls:""}">${esc(e.text)}${e.btn?`<button class="undo act" type="button" data-act="${esc(e.btn.act)}">${esc(e.btn.label)}</button>`:""}<time>${hhmm(e.t)}</time></div>`}
+    else if(e.kind==="copia"){html+=copiaHtml(e)}
     else if(e.kind==="foto"){html+=`<div class="b me"><img src="${esc(e.url)}" alt="Foto de la factura">Foto de una factura<time>${hhmm(e.t)}</time></div>`}
     else if(e.kind==="factura"){html+=facturaHtml(e)}
     else if(e.kind==="typing"){html+=`<div class="b bot typing" aria-label="Escribiendo"><span></span><span></span><span></span></div>`}
@@ -765,7 +1178,7 @@ function renderSheet(){
   $("mlabel").textContent=cur.toLocaleDateString("es-CO",{month:"long",year:"numeric"});
   const s=monthStats(ymOf(cur));const bal=s.tin-s.tout;
   $("saldo").textContent=(bal<0?"−":"")+fmt(Math.abs(bal));$("tin").textContent=fmt(s.tin);$("tout").textContent=fmt(s.tout);
-  renderBudgets();renderFijos();renderMetas();renderCompare();
+  renderBudgets();renderFijos();renderMetas();renderCompare();renderCuentas();renderDeudas();renderRec();
   document.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tipo===catTipo));
   const map=catTipo==="i"?s.byCatI:s.byCat,total=catTipo==="i"?s.tin:s.tout;
   const cats=Object.entries(map).sort((a,b)=>b[1]-a[1]);
@@ -781,7 +1194,10 @@ function renderSheet(){
   if(!mes.length){list.innerHTML=`<li style="grid-template-columns:1fr"><p class="empty">No hay movimientos en este mes.</p></li>`;return}
   for(const x of mes){
     const li=document.createElement("li");
-    li.innerHTML=`<div class="d"><b></b><div class="meta"><select aria-label="Categoría"></select><small>${shortDate(x.fecha)}</small></div></div><span class="num a ${x.tipo}" style="font-weight:700">${x.tipo==="i"?"+":"−"}${fmt(x.monto)}</span>`;
+    li.innerHTML=`<div class="d"><b></b><div class="meta"><select aria-label="Categoría"></select>${varias()?`<select aria-label="Cuenta" data-cu></select>`:`<small>${shortDate(x.fecha)}</small>`}</div></div><span class="num a ${x.tipo}" style="font-weight:700;text-align:right">${x.tipo==="i"?"+":"−"}${fmt(x.monto)}${varias()?`<small class="fd">${shortDate(x.fecha)}</small>`:""}</span>`;
+    const cu=li.querySelector("[data-cu]");
+    if(cu){for(const c of cfg.cuentas.lista){const o=document.createElement("option");o.value=c.id;o.textContent=c.nombre;cu.appendChild(o)}cu.value=cuentaDe(x);
+      cu.onchange=async()=>{const ok=await setCuenta(x.id,cu.value);if(!ok)$("status").textContent="No se pudo guardar el cambio. Revisa tu conexión."}}
     li.querySelector("b").textContent=x.desc||x.cat;
     const sel=li.querySelector("select");
     const opts=CATS[x.tipo].includes(x.cat)?CATS[x.tipo]:[x.cat,...CATS[x.tipo]];
@@ -842,6 +1258,61 @@ function openMetaForm(id){
   $("mabono").hidden=!m;$("mmonto").value="";$("mrm").hidden=!m;renderMetas();(m?$("mmonto"):$("mnombre")).focus();
 }
 function closeMetaForm(){metaEdit=null;$("mform").hidden=true;renderMetas()}
+let tDelPend=null; // paso de plata que espera confirmar para borrarse
+function renderCuentas(){
+  const l=cfg.cuentas.lista,tot=l.reduce((s,c)=>s+saldoCuenta(c.id),0);
+  $("cuentas").innerHTML=`<div id="clist" style="display:flex;flex-direction:column;gap:2px;margin:0 -8px">`+l.map(c=>{const s=saldoCuenta(c.id);
+    return `<button type="button" class="bud" data-cuenta="${esc(c.id)}" aria-label="Editar ${esc(c.nombre)}"><span>${esc(c.nombre)}</span><span class="num${s<0?" neg":""}" style="font-weight:700">${signo(s)}</span><small>${esc(TIPOS_CUENTA[c.tipo])}${c.id===cfg.cuentas.def?" · principal":""}${c.tipo==="tarjeta"&&s<0?" · lo que debes":""}</small></button>`}).join("")
+    +`<div class="tot"><span>Total</span><b class="${tot<0?"neg":""}">${signo(tot)}</b></div></div>`
+    +cfg.transf.slice(-3).reverse().map(t=>`<div class="tline"><span>${shortDate(t.fecha)} · ${esc(cuentaNombre(t.de))} → ${esc(cuentaNombre(t.a))} · ${fmt(t.monto)}</span><button type="button" class="del${tDelPend===t.id?" confirm":""}" data-tdel="${esc(t.id)}" aria-label="Borrar este paso de plata">${tDelPend===t.id?"¿Borrar?":"✕"}</button></div>`).join("")
+    +(l.every(c=>!c.inicial)?`<p class="hint">Toca una cuenta para decirme cuánto tienes hoy en ella. Lo que anotaste antes quedó en ${esc(cuentaNombre(cfg.cuentas.base))}. En el chat di “con Nequi” o “en efectivo” y lo anoto en esa cuenta.</p>`:"");
+  $("addCuenta").hidden=cuentaEdit!==null||l.length>=8;$("addTransf").hidden=l.length<2||!$("tform").hidden;
+}
+const lblSaldo=()=>{$("csaldoLbl").textContent=$("ctipo").value==="tarjeta"?"¿Cuánto debes hoy en la tarjeta?":"¿Cuánto tienes hoy en esta cuenta?"};
+function openCuentaForm(id){
+  cuentaEdit=id;const c=cuentaById(id);$("cform").hidden=false;$("tform").hidden=true;$("cerr").hidden=true;
+  $("ctipo").innerHTML=Object.entries(TIPOS_CUENTA).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
+  $("cnombre").value=c?c.nombre:"";$("ctipo").value=c?c.tipo:"digital";
+  const s=c?saldoCuenta(c.id):0;$("csaldo").value=s?Math.abs(s).toLocaleString("es-CO"):"";$("csaldo").dataset.orig=$("csaldo").value;
+  $("cdef").checked=!!c&&c.id===cfg.cuentas.def;$("crm").hidden=!c||cfg.cuentas.lista.length<2;
+  lblSaldo();renderCuentas();(c?$("csaldo"):$("cnombre")).focus();
+}
+function closeCuentaForm(){cuentaEdit=null;$("cform").hidden=true;renderCuentas()}
+function openTransfForm(){
+  cuentaEdit=null;$("cform").hidden=true;$("tform").hidden=false;$("terr").hidden=true;
+  const o=p=>cfg.cuentas.lista.map(c=>`<option value="${esc(c.id)}">${p} ${esc(c.nombre)}</option>`).join("");
+  $("tde").innerHTML=o("De");$("tpara").innerHTML=o("A");
+  $("tde").value=cfg.cuentas.def;$("tpara").value=cfg.cuentas.lista.find(c=>c.id!==cfg.cuentas.def).id;$("tmonto").value="";
+  renderCuentas();$("tmonto").focus();
+}
+function closeTransfForm(){$("tform").hidden=true;renderCuentas()}
+function renderDeudas(){
+  const ab=cfg.deudas.filter(d=>pendiente(d)>0).sort((a,b)=>b.fecha.localeCompare(a.fecha)),pag=cfg.deudas.filter(d=>!pendiente(d)).slice(-3).reverse();
+  const tm=totalPend(abiertas("me")),ty=totalPend(abiertas("yo"));
+  $("deudas").innerHTML=(ab.length?`<div style="display:flex;flex-direction:column;gap:2px;margin:0 -8px"><div class="tot">${tm?`<span>Te deben <b class="pos">${fmt(tm)}</b></span>`:""}${ty?`<span>Debes <b class="neg">${fmt(ty)}</b></span>`:""}</div>`
+    +ab.map(d=>{const p=pendiente(d),pc=Math.round((d.monto-p)/d.monto*100);
+      return `<button type="button" class="bud" data-deuda="${esc(d.id)}" aria-label="Abonar o editar"><span>${d.tipo==="me"?esc(d.quien)+" te debe":"Le debes a "+esc(d.quien)}</span><span class="num a ${d.tipo==="me"?"i":"g"}" style="font-weight:700">${fmt(p)}</span><span class="bar2"><i style="width:${pc}%;background:var(--in)"></i></span><small>${d.desc?esc(d.desc)+" · ":""}desde ${shortDate(d.fecha)}${pc?` · ${d.tipo==="me"?"te ha pagado":"has pagado"} ${fmt(d.monto-p)} de ${fmt(d.monto)}`:""}</small></button>`}).join("")+`</div>`
+    :`<p class="empty">Anota quién te debe y a quién le debes, y márcalo cuando te paguen. También puedes escribir “le presté 50 mil a Juan”.</p>`)
+    +pag.map(d=>`<div class="tline"><span>✓ ${d.tipo==="me"?esc(d.quien)+" te pagó":"Le pagaste a "+esc(d.quien)} ${fmt(d.monto)}</span><button type="button" class="del" data-ddel="${esc(d.id)}" aria-label="Quitar del historial">✕</button></div>`).join("");
+  $("addDeuda").hidden=deudaEdit!==null;
+}
+function openDeudaForm(id){
+  deudaEdit=id;const d=cfg.deudas.find(x=>x.id===id);$("dform").hidden=false;$("derr").hidden=true;
+  $("dtipo").value=d?d.tipo:"me";$("dquien").value=d?d.quien:"";$("dmonto").value=d?d.monto.toLocaleString("es-CO"):"";$("ddesc").value=d?d.desc:"";
+  $("dabono").hidden=!d;$("dpago").value="";$("drm").hidden=!d;renderDeudas();(d?$("dpago"):$("dquien")).focus();
+}
+function closeDeudaForm(){deudaEdit=null;$("dform").hidden=true;renderDeudas()}
+function renderRec(){
+  const r=cfg.recordatorio,perm=puedeNotificar()?Notification.permission:"";
+  $("recOn").checked=r.on;if(document.activeElement!==$("recHora"))$("recHora").value=r.hora;$("recHora").disabled=!r.on;
+  $("recNotif").hidden=!(r.on&&perm==="default");$("recCal").hidden=!r.on||!!window.claude;
+  $("recNota").textContent=!r.on?"Cada noche te pregunto si anotaste tus gastos, solo los días que no hayas anotado nada."
+    :window.claude?`Aquí en Claude no puedo mandarte notificaciones al celular: te lo recuerdo en el chat después de las ${horaTxt(r.hora)}, si la app está abierta o apenas la abras. Para recibir la notificación, actívalo en la versión instalable.`
+    :perm==="granted"?`Te aviso con una notificación a las ${horaTxt(r.hora)} si ese día no has anotado nada. El celular a veces la demora un rato; para que llegue puntual, agrégalo también a tu calendario.`
+    :perm==="denied"?"Las notificaciones están bloqueadas para esta app (puedes activarlas en los ajustes del navegador). Mientras tanto te lo recuerdo en el chat, y puedes agregarlo a tu calendario."
+    :perm?"Activa las notificaciones para que te llegue el aviso aunque no tengas la app abierta."
+    :"Este navegador no deja mandar notificaciones: te lo recuerdo en el chat. Para un aviso puntual, agrégalo a tu calendario.";
+}
 function renderCompare(){
   const ym=ymOf(cur),py=prevYm(ym),meses=[];let k=ym;for(let n=0;n<6;n++){meses.unshift(k);k=prevYm(k)}
   const vals=meses.map(m=>monthStats(m).tout),max=Math.max(...vals,1);
@@ -870,7 +1341,7 @@ async function send(text){
   live.push(me,typing);renderChat();
   let res=null;
   try{res=await ask(text)}catch(x){res=null}
-  if(!res){const b=localBudget(text)||localFijo(text)||localMeta(text)||localOtros(text);if(b)res={movs:[],...b};else{const movs=localParse(text);res=movs.length?{movs,respuesta:""}:{movs:[],...localAnswer(text)}}}
+  if(!res){const b=localBudget(text)||localFijo(text)||localDeuda(text)||localRecordatorio(text)||localCopia(text)||localCuentas(text)||localMeta(text)||localOtros(text);if(b)res={movs:[],...b};else{const movs=localParse(text);res=movs.length?{movs,respuesta:""}:{movs:[],...localAnswer(text)}}}
   live=live.filter(e=>e!==typing);
   const last=lastItem();
   if(res.movs&&res.movs.length){
@@ -898,6 +1369,28 @@ async function send(text){
   }else if(res.meta&&res.meta.quitar){
     const m=cfg.metas.find(x=>x.id===res.meta.quitar);const ok=m&&await saveMetas(cfg.metas.filter(x=>x!==m));
     live.push({kind:"bot",text:!m?"No encontré esa meta.":ok?`Listo, quité la meta ${m.nombre}.`:"No pude guardar el cambio. Revisa tu conexión.",t:Date.now()});
+  }else if(res.transferencia){
+    live.push({kind:"bot",text:await hacerTransf(res.transferencia),t:Date.now()});
+  }else if(res.saldoCuenta){
+    live.push({kind:"bot",text:await ajustarSaldo(res.saldoCuenta.cuenta,res.saldoCuenta.saldo),t:Date.now()});
+  }else if(res.deuda&&res.deuda.crear){
+    const d=await addDeuda(res.deuda.crear);
+    live.push({kind:"bot",text:!d?"No pude guardar la deuda. Revisa tu conexión e inténtalo otra vez.":(d.tipo==="me"?`Listo, ${d.quien} te debe ${fmt(d.monto)}`:`Listo, le debes ${fmt(d.monto)} a ${d.quien}`)+(d.desc?` (${d.desc})`:"")+
+      `. Cuando ${d.tipo==="me"?"te pague, dime “"+d.quien.toLowerCase()+" ya me pagó”":"le pagues, dime “le pagué a "+d.quien.toLowerCase()+"”"} o cuéntame los abonos. No cambia tu saldo.`,t:Date.now()});
+  }else if(res.deuda&&res.deuda.pagar){
+    live.push({kind:"bot",text:await pagarDeuda(res.deuda.pagar.id,res.deuda.pagar.monto),t:Date.now()});
+  }else if(res.deuda&&res.deuda.quitar){
+    const d=cfg.deudas.find(x=>x.id===res.deuda.quitar);const ok=d&&await saveDeudas(cfg.deudas.filter(x=>x!==d));
+    live.push({kind:"bot",text:!d?"No encontré esa deuda.":ok?`Listo, quité la deuda con ${d.quien}.`:"No pude guardar el cambio. Revisa tu conexión.",t:Date.now()});
+  }else if(res.recordatorio){
+    const r=res.recordatorio,ok=await saveRec(r),pedir=r.on&&puedeNotificar()&&Notification.permission==="default";
+    live.push({kind:"bot",t:Date.now(),btn:pedir?{label:"Activar notificaciones",act:"notif"}:null,text:!ok?"No pude guardar el recordatorio. Revisa tu conexión.":!r.on?"Listo, quité el recordatorio diario."
+      :`Listo, todos los días a las ${horaTxt(r.hora)} te pregunto si anotaste tus gastos (solo si ese día no has anotado nada).`+
+      (window.claude?" Aquí en Claude te lo recuerdo en el chat; para que te llegue una notificación al celular, actívalo en la versión instalable.":pedir?" Activa las notificaciones para que te llegue aunque la app esté cerrada.":"")});
+  }else if(res.copia==="guardar"){
+    live.push({kind:"bot",text:await exportCopia(),t:Date.now()});
+  }else if(res.copia==="cargar"){
+    live.push({kind:"bot",text:"Elige el archivo de la copia (mis-cuentas-copia-….json) y te digo qué trae antes de agregar nada.",btn:{label:"Elegir archivo",act:"cargar-copia"},t:Date.now()});
   }else if(res.exportar){
     live.push({kind:"bot",text:await exportXlsx(),t:Date.now()});
   }else if(res.presupuesto){
@@ -972,7 +1465,7 @@ async function leerFactura(file){
     const f=/^\d{4}-\d{2}-\d{2}$/.test(r.fecha||"")&&r.fecha<=today()?r.fecha:today();
     live.push({kind:"factura",id:"fx"+Date.now().toString(36),foto,t:Date.now(),err:"",
       productos:(Array.isArray(r.productos)?r.productos:[]).map(x=>String(x).slice(0,40)).filter(Boolean).slice(0,4),
-      f:{desc:String(r.comercio||"").slice(0,60)||"Factura",monto:total.toLocaleString("es-CO"),fecha:f,cat:CATS.g.includes(r.cat)?r.cat:"Otros"}});
+      f:{desc:String(r.comercio||"").slice(0,60)||"Factura",monto:total.toLocaleString("es-CO"),fecha:f,cat:CATS.g.includes(r.cat)?r.cat:"Otros",cuenta:cfg.cuentas.def}});
   }else{
     const txt=r?(typeof r.nota==="string"&&r.nota?r.nota+" ":"No pude leer el total de esa foto. ")+"Intenta con otra foto, derecha y con buena luz, o escríbeme el gasto."
       :code==="not_granted"?"Necesito tu permiso para leer la foto. Si prefieres, escríbeme el gasto, por ejemplo: “gasté 45 mil en el Éxito”."
@@ -990,7 +1483,8 @@ function facturaHtml(e){
     `<div class="fact"><label class="full">Comercio<input data-ff="desc" maxlength="60" autocomplete="off" value="${esc(f.desc)}"></label>`+
     `<label>Total<input data-ff="monto" inputmode="numeric" autocomplete="off" value="${esc(f.monto)}"></label>`+
     `<label>Fecha<input data-ff="fecha" type="date" max="${today()}" value="${esc(f.fecha)}"></label>`+
-    `<label class="full">Categoría<select data-ff="cat">${opts}</select></label>`+
+    `<label${varias()?"":` class="full"`}>Categoría<select data-ff="cat">${opts}</select></label>`+
+    (varias()?`<label>Cuenta<select data-ff="cuenta">${cfg.cuentas.lista.map(c=>`<option value="${esc(c.id)}"${c.id===f.cuenta?" selected":""}>${esc(c.nombre)}</option>`).join("")}</select></label>`:"")+
     (e.err?`<p class="err">${esc(e.err)}</p>`:"")+
     `<div class="acts"><button type="button" data-fno>Descartar</button><button type="button" class="ok" data-fok>Anotar gasto</button></div></div><time>${hhmm(e.t)}</time></div>`;
 }
@@ -999,7 +1493,7 @@ function quitarFactura(e){live=live.filter(x=>x!==e&&x!==e.foto);setTimeout(()=>
 async function anotarFactura(e){
   const monto=parseMonto(e.f.monto.toLowerCase()),fecha=/^\d{4}-\d{2}-\d{2}$/.test(e.f.fecha)?e.f.fecha:"";
   if(!(monto>0)||!fecha){e.err=monto>0?"Revisa la fecha.":"Escribe el total de la factura.";renderChat();return}
-  const m=clean({tipo:"g",monto,cat:e.f.cat,desc:e.f.desc.trim()||"Factura",fecha});
+  const m=clean({tipo:"g",monto,cat:e.f.cat,desc:e.f.desc.trim()||"Factura",fecha,cuenta:e.f.cuenta});
   quitarFactura(e);
   const before={[fecha.slice(0,7)]:monthStats(fecha.slice(0,7)).byCat};
   const fails=await addRecords([m],"📷 Factura de "+m.desc);
@@ -1017,11 +1511,77 @@ $("chat").addEventListener("input",facturaInput);$("chat").addEventListener("cha
 $("chat").addEventListener("click",e=>{
   const ex=e.target.closest("[data-ex]");if(ex){send(ex.dataset.ex);return}
   const fk=e.target.closest("[data-fok]");if(fk){const x=facturaDe(fk);if(x)anotarFactura(x);return}
+  const ck=e.target.closest("[data-cok],[data-cno]");if(ck){const b=ck.closest("[data-cid]"),x=b&&live.find(y=>y.kind==="copia"&&y.id===b.dataset.cid);
+    if(x){if(ck.hasAttribute("data-cok"))aplicarCopia(x);else{live=live.filter(y=>y!==x);live.push({kind:"bot",text:"Listo, no agregué nada de esa copia.",t:Date.now()});renderChat()}}return}
+  const ac=e.target.closest("[data-act]");if(ac){
+    if(ac.dataset.act==="cargar-copia"){$("copiafile").value="";$("copiafile").click()}
+    else if(ac.dataset.act==="notif")activarNotif().then(t=>{live.push({kind:"bot",text:t,t:Date.now()});renderChat();$("chat").scrollTop=$("chat").scrollHeight});
+    return}
   const fn=e.target.closest("[data-fno]");if(fn){const x=facturaDe(fn);if(x){quitarFactura(x);live.push({kind:"bot",text:"Listo, no anoté esa factura.",t:Date.now()});renderChat()}return}
   const u=e.target.closest("[data-undo]");if(u){const k=u.dataset.undo;const ids=items.filter(x=>(x.msg||x.id)===k).map(x=>x.id);
     removeIds(ids);live.push({kind:"bot",text:"Deshecho. Ya no aparece en tus cuentas.",t:Date.now()});renderChat()}
 });
-$("openSheet").onclick=()=>{cur=new Date();cur.setDate(1);catSel=null;budEdit=null;$("bform").hidden=true;fijoEdit=null;$("fform").hidden=true;metaEdit=null;$("mform").hidden=true;$("sheet").hidden=false;renderSheet()};
+$("openSheet").onclick=()=>{cur=new Date();cur.setDate(1);catSel=null;budEdit=null;$("bform").hidden=true;fijoEdit=null;$("fform").hidden=true;metaEdit=null;$("mform").hidden=true;
+  cuentaEdit=null;$("cform").hidden=true;$("tform").hidden=true;deudaEdit=null;$("dform").hidden=true;$("sheet").hidden=false;renderSheet()};
+/* cuentas */
+$("addCuenta").onclick=()=>openCuentaForm("");
+$("addTransf").onclick=openTransfForm;
+$("ccancel").onclick=closeCuentaForm;$("tcancel").onclick=closeTransfForm;
+$("ctipo").onchange=lblSaldo;
+$("cuentas").addEventListener("click",e=>{
+  const b=e.target.closest("[data-cuenta]");if(b){openCuentaForm(b.dataset.cuenta);return}
+  const d=e.target.closest("[data-tdel]");if(!d)return;const id=d.dataset.tdel;
+  if(tDelPend===id){tDelPend=null;saveTransf(cfg.transf.filter(t=>t.id!==id)).then(ok=>{if(!ok)$("status").textContent="No se pudo borrar. Revisa tu conexión."})}
+  else{tDelPend=id;renderCuentas();setTimeout(()=>{if(tDelPend===id){tDelPend=null;renderCuentas()}},3000)}
+});
+$("cform").addEventListener("submit",async e=>{e.preventDefault();
+  const err=t=>{$("cerr").textContent=t;$("cerr").hidden=false};
+  const nombre=$("cnombre").value.trim().slice(0,24),tipo=$("ctipo").value,v=$("csaldo").value.trim();
+  if(!nombre)return err("Ponle un nombre a la cuenta.");
+  if(cfg.cuentas.lista.some(c=>c.id!==cuentaEdit&&c.nombre.toLowerCase()===nombre.toLowerCase()))return err("Ya tienes una cuenta con ese nombre.");
+  const id=cuentaEdit||(idSafe(sinTilde(nombre.toLowerCase()).replace(/\s+/g,"-")).slice(0,14)||"cuenta")+"-"+Date.now().toString(36).slice(-4);
+  let c2={...cfg.cuentas,lista:cuentaEdit?cfg.cuentas.lista.map(c=>c.id===id?{...c,nombre,tipo}:c):[...cfg.cuentas.lista,{id,nombre,tipo,inicial:0}],def:$("cdef").checked?id:cfg.cuentas.def};
+  if(v!==$("csaldo").dataset.orig){
+    const n=parseMonto(v.toLowerCase()),real=tipo==="tarjeta"?-n:n,prev=cfg;cfg={...cfg,cuentas:c2};
+    const base=saldoCuenta(id)-cuentaById(id).inicial;cfg=prev;
+    c2={...c2,lista:c2.lista.map(c=>c.id===id?{...c,inicial:real-base}:c)};
+  }
+  closeCuentaForm();if(!await saveCuentas(c2))$("status").textContent="No se pudo guardar la cuenta. Revisa tu conexión."});
+$("crm").onclick=async()=>{const id=cuentaEdit;
+  if(items.some(x=>cuentaDe(x)===id)||cfg.transf.some(t=>t.de===id||t.a===id)){$("cerr").textContent="Esta cuenta tiene movimientos, así que no la puedo quitar. Puedes cambiarle el nombre.";$("cerr").hidden=false;return}
+  closeCuentaForm();const lista=cfg.cuentas.lista.filter(c=>c.id!==id),def=cfg.cuentas.def===id?lista[0].id:cfg.cuentas.def;
+  if(!await saveCuentas({lista,def,base:cfg.cuentas.base===id?def:cfg.cuentas.base}))$("status").textContent="No se pudo quitar la cuenta. Revisa tu conexión."};
+$("tform").addEventListener("submit",async e=>{e.preventDefault();
+  const x=transfIn({de:$("tde").value,a:$("tpara").value,monto:parseMonto($("tmonto").value.toLowerCase())});
+  if(!x){$("terr").textContent=$("tde").value===$("tpara").value?"Elige dos cuentas distintas.":"Escribe cuánto vas a pasar.";$("terr").hidden=false;return}
+  closeTransfForm();$("status").textContent=await hacerTransf(x)});
+/* deudas */
+$("addDeuda").onclick=()=>openDeudaForm("");
+$("dcancel").onclick=closeDeudaForm;
+$("deudas").addEventListener("click",e=>{const b=e.target.closest("[data-deuda]");if(b){openDeudaForm(b.dataset.deuda);return}
+  const d=e.target.closest("[data-ddel]");if(d)saveDeudas(cfg.deudas.filter(x=>x.id!==d.dataset.ddel))});
+$("dform").addEventListener("submit",async e=>{e.preventDefault();
+  const quien=$("dquien").value.trim().slice(0,30),monto=parseMonto($("dmonto").value.toLowerCase()),tipo=$("dtipo").value==="yo"?"yo":"me",desc=$("ddesc").value.trim().slice(0,40);
+  if(!quien||!(monto>0)){$("derr").textContent=quien?"Escribe el monto.":"Escribe con quién es la deuda.";$("derr").hidden=false;return}
+  const id=deudaEdit;closeDeudaForm();
+  const ok=id?await saveDeudas(cfg.deudas.map(d=>d.id===id?{...d,quien,monto,tipo,desc}:d)):!!await addDeuda({quien,monto,tipo,desc});
+  if(!ok)$("status").textContent="No se pudo guardar la deuda. Revisa tu conexión."});
+$("dabonar").onclick=async()=>{const n=parseMonto($("dpago").value.toLowerCase()),id=deudaEdit;
+  if(!(n>0)){$("derr").textContent="Escribe el monto del abono.";$("derr").hidden=false;return}
+  closeDeudaForm();$("status").textContent=await pagarDeuda(id,n)};
+$("dpagada").onclick=async()=>{const id=deudaEdit;closeDeudaForm();$("status").textContent=await pagarDeuda(id,0)};
+$("drm").onclick=async()=>{const id=deudaEdit;closeDeudaForm();if(id&&!await saveDeudas(cfg.deudas.filter(d=>d.id!==id)))$("status").textContent="No se pudo quitar la deuda. Revisa tu conexión."};
+/* recordatorio */
+$("recOn").onchange=async()=>{const on=$("recOn").checked;await saveRec({...cfg.recordatorio,on});
+  if(on&&puedeNotificar()&&Notification.permission==="default")$("status").textContent=await activarNotif()};
+$("recHora").onchange=()=>{const h=$("recHora").value;if(/^\d{2}:\d{2}$/.test(h))saveRec({...cfg.recordatorio,hora:h})};
+$("recNotif").onclick=async()=>{$("status").textContent=await activarNotif()};
+$("recCal").onclick=async()=>{const r=await saveFile(new Blob([icsRecordatorio()],{type:"text/calendar"}),"recordatorio-mis-cuentas.ics");
+  $("status").textContent=r==="ok"?"Listo. Abre el archivo descargado y agrégalo a tu calendario: te avisará cada día a esa hora.":"No pude descargar el archivo del calendario."};
+/* copia de seguridad */
+$("copiaSave").onclick=async()=>{$("copiaSave").disabled=true;$("status").textContent=await exportCopia();$("copiaSave").disabled=false};
+$("copiaLoad").onclick=()=>{$("copiafile").value="";$("copiafile").click()};
+$("copiafile").addEventListener("change",()=>{const f=$("copiafile").files[0];if(f){$("sheet").hidden=true;leerCopia(f)}});
 $("closeSheet").onclick=()=>{$("sheet").hidden=true};
 $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")$("sheet").hidden=true});
 $("prev").onclick=()=>{cur.setMonth(cur.getMonth()-1);catSel=null;renderSheet()};
@@ -1057,7 +1617,7 @@ $("fform").addEventListener("submit",async e=>{e.preventDefault();
 $("frm").onclick=async()=>{const id=fijoEdit;closeFijoForm();if(id&&!await saveFijos(cfg.fijos.filter(f=>f.id!==id)))$("status").textContent="No se pudo quitar el fijo. Revisa tu conexión."};
 $("budgets").addEventListener("click",e=>{const b=e.target.closest("[data-bud]");if(b)openBudForm(b.dataset.bud)});
 $("bcancel").onclick=closeBudForm;
-["bmonto","fmonto","mobj","mmonto"].forEach(k=>$(k).addEventListener("input",e=>{const v=e.target.value;if(/^[\d.\s]*$/.test(v)){const n=v.replace(/\D/g,"");e.target.value=n?Number(n).toLocaleString("es-CO"):""}}));
+["bmonto","fmonto","mobj","mmonto","csaldo","tmonto","dmonto","dpago"].forEach(k=>$(k).addEventListener("input",e=>{const v=e.target.value;if(/^[\d.\s]*$/.test(v)){const n=v.replace(/\D/g,"");e.target.value=n?Number(n).toLocaleString("es-CO"):""}}));
 $("bform").addEventListener("submit",async e=>{e.preventDefault();
   const cat=$("bcat").value,n=parseMonto($("bmonto").value.toLowerCase());
   if(!CATS.g.includes(cat)||!(n>0)){$("berr").textContent="Escribe un tope mayor a $0.";$("berr").hidden=false;return}
@@ -1073,17 +1633,18 @@ if(window.claude){
   (async()=>{
     const db=await window.claude.use("db"),user=await window.claude.use("user");
     const uid=user?await user.id():null;
-    if(!db||!uid){$("status").textContent="Guardado solo en este navegador.";runFijos();return}
+    if(!db||!uid){$("status").textContent="Guardado solo en este navegador.";runFijos();revisarRecordatorio();return}
     store=db.collection("data/users/"+uid);
     cfgStore=db.doc("data/users/"+uid+"/ajustes").collection("cfg"); // presupuestos y demás ajustes, aparte de los movimientos
-    let gotCfg=false,gotItems=false;const ready=()=>{if(gotCfg&&gotItems)runFijos()};
+    let gotCfg=false,gotItems=false;const ready=()=>{if(gotCfg&&gotItems){runFijos();revisarRecordatorio()}};
     cfgStore.onSnapshot(s=>{const d=s.docs.find(x=>x.id==="presupuestos"),f=s.docs.find(x=>x.id==="fijos");
-      const mt=s.docs.find(x=>x.id==="metas");
-      cfg={...cfg,presupuestos:cleanBudgets(d&&d.data()),fijos:cleanFijos(f&&f.data().lista),metas:cleanMetas(mt&&mt.data().lista)};render();gotCfg=true;ready()},()=>{});
+      const mt=s.docs.find(x=>x.id==="metas"),g=k=>{const x=s.docs.find(y=>y.id===k);return x&&x.data()};
+      cfg={...cfg,presupuestos:cleanBudgets(d&&d.data()),fijos:cleanFijos(f&&f.data().lista),metas:cleanMetas(mt&&mt.data().lista),
+        deudas:cleanDeudas((g("deudas")||{}).lista),cuentas:cleanCuentas(g("cuentas")),transf:cleanTransf((g("transferencias")||{}).lista),recordatorio:cleanRec(g("recordatorio"))};render();gotCfg=true;ready()},()=>{});
     store.onSnapshot(s=>{items=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>(x.tipo==="g"||x.tipo==="i")&&typeof x.fecha==="string");render();$("status").textContent="Guardado en tu cuenta · privado";gotItems=true;ready()},
       ()=>{$("status").textContent="Sin conexión con tus datos. Recarga la página."});
   })();
-}else{$("status").textContent="Guardado solo en este dispositivo · funciona sin internet";runFijos()}
+}else{$("status").textContent="Guardado solo en este dispositivo · funciona sin internet";runFijos();revisarRecordatorio()}
 </script>
 <script>
 /* ---------- app instalable (PWA): service worker, botón de instalar y accesos directos ---------- */
