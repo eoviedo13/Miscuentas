@@ -1,6 +1,6 @@
 // Service worker de Mis Cuentas: guarda la app para que abra sin internet.
 // Al cambiar cualquier archivo de la app, sube VERSION para que los celulares bajen la nueva.
-const VERSION = "v14";
+const VERSION = "v15";
 const CACHE = "mis-cuentas-" + VERSION;
 const FONTS = "mis-cuentas-fuentes";
 const ESTADO = "mis-cuentas-estado"; // lo que la página deja para el recordatorio diario
