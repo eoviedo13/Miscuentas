@@ -1659,7 +1659,12 @@ if(window.claude){
 </script>
 <script>
 /* ---------- app instalable (PWA): service worker, botón de instalar y accesos directos ---------- */
-if("serviceWorker" in navigator&&location.protocol!=="file:")window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+if("serviceWorker" in navigator&&location.protocol!=="file:"){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>r.update()).catch(()=>{}));
+  // cuando llega una versión nueva de la app, recarga una vez para usarla sin tener que cerrarla
+  const habia=!!navigator.serviceWorker.controller;let recargada=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(habia&&!recargada&&!busy){recargada=true;location.reload()}});
+}
 // pide que el navegador no borre los datos guardados aquí si se queda sin espacio
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persisted().then(p=>p||navigator.storage.persist()).catch(()=>{});
 let installEvt=null;

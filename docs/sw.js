@@ -1,6 +1,6 @@
 // Service worker de Mis Cuentas: guarda la app para que abra sin internet.
 // Al cambiar cualquier archivo de la app, sube VERSION para que los celulares bajen la nueva.
-const VERSION = "v13";
+const VERSION = "v14";
 const CACHE = "mis-cuentas-" + VERSION;
 const FONTS = "mis-cuentas-fuentes";
 const ESTADO = "mis-cuentas-estado"; // lo que la página deja para el recordatorio diario
@@ -16,7 +16,9 @@ const SHELL = [
 ];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache:"reload" salta la caché HTTP del navegador (GitHub Pages la guarda 10 minutos): así la versión nueva
+  // no se queda con el index.html viejo
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", e => {
@@ -26,6 +28,19 @@ self.addEventListener("activate", e => {
       .then(() => self.clients.claim())
   );
 });
+
+// la página primero de internet (así cada cambio llega apenas se abre la app); sin internet o si tarda, la guardada
+function networkFirst(req, cacheName, key) {
+  return caches.open(cacheName).then(cache => {
+    const net = fetch(req, { cache: "no-cache" }).then(res => {
+      if (res && res.ok) { cache.put(key, res.clone()); return res; }
+      return cache.match(key).then(hit => hit || res);
+    });
+    const espera = new Promise(r => setTimeout(r, 3000)).then(() => cache.match(key));
+    return Promise.race([net.catch(() => cache.match(key)), espera.then(hit => hit || net)])
+      .then(res => res || cache.match(key));
+  });
+}
 
 // responde con lo guardado y de paso trae la versión nueva para la próxima vez
 function staleWhileRevalidate(req, cacheName, key) {
@@ -48,7 +63,7 @@ self.addEventListener("fetch", e => {
   const url = new URL(req.url);
   // abrir la app (también desde el acceso directo ?abrir=resumen) siempre sirve la misma página
   if (req.mode === "navigate" && url.origin === location.origin) {
-    e.respondWith(staleWhileRevalidate(req, CACHE, "index.html"));
+    e.respondWith(networkFirst(req, CACHE, "index.html"));
     return;
   }
   if (url.origin === location.origin) {
