@@ -356,6 +356,22 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 const CATS={g:["Comida","Transporte","Vivienda","Servicios","Salud","Entretenimiento","Ropa","Educación","Otros"],
             i:["Salario","Clientes","Ventas","Regalo","Otros"]};
 const ALIAS={ocio:"Entretenimiento",diversi:"Entretenimiento",rumba:"Entretenimiento",arriendo:"Vivienda"}; // palabras que el usuario usa para una categoría de gasto
+// montos con jerga, también la costeña: "20 mil", "120 lucas", "50 barras", "1,5 palos", "un melón", "medio palo", "una barra"
+const UNI="millones?|mill[oó]n|melones|mel[oó]n|mil|k|lucas?|barras?|palos?";
+const MONTO_RE=new RegExp(`(\\d[\\d.,]*)\\s*(?:(${UNI})(?![a-zñáéíóú]))?|medi[oa]\\s+(?:palo|mill[oó]n|mel[oó]n|barra|luca)|un\\s+(?:palo|mill[oó]n|mel[oó]n)|una\\s+(?:barra|luca)`);
+const MONTO_G=new RegExp(MONTO_RE.source,"g");
+// pesos de un resultado de MONTO_RE
+function montoDe(mm){
+  if(!mm[1]){const base=/palo|mill|mel/.test(mm[0])?1e6:1000;return /^medi/.test(mm[0])?base/2:base}
+  let n=Number(mm[1].replace(/[.,](?=\d{3}\b)/g,"").replace(",","."));
+  const u=mm[2]||"";if(/mill|palo|mel/.test(u))n*=1e6;else if(/mil|k|luca|barra/.test(u))n*=1000;
+  return n;
+}
+// el monto de un texto: el primero con unidad ("6 polas 18 barras" → 18 barras); si ninguno tiene, el mayor
+function montoMatch(t){
+  const all=[...t.matchAll(MONTO_G)];if(!all.length)return null;
+  return all.find(m=>m[2]||!m[1])||all.reduce((a,b)=>montoDe(b)>montoDe(a)?b:a);
+}
 const $=id=>document.getElementById(id);
 const fmt=n=>"$"+Math.round(n).toLocaleString("es-CO");
 const pad=n=>String(n).padStart(2,"0");
@@ -459,12 +475,12 @@ function metaIn(x){
 function localFijo(text){
   const t=text.toLowerCase();if(!/\bfij[oa]s?\b|cada mes|todos los meses|mensualmente|recurrente/.test(t))return null;
   if(/(quita|borra|elimina|cancela|ya no)/.test(t)){const f=findFijo(t);return f?{fijo:{quitar:f.id}}:{respuesta:"No encontré ese fijo. "+fijosSummary()}}
-  const dm=t.match(/(?:\bel\s+|d[ií]a\s+)(\d{1,2})(?!\d)(?!\s*(?:mil|k|lucas?|palos?|mill))(?:\s+de\s+cada\s+mes)?/);
+  const dm=t.match(/(?:\bel\s+|d[ií]a\s+)(\d{1,2})(?!\d)(?!\s*(?:mil|k|lucas?|palos?|barras?|mel))(?:\s+de\s+cada\s+mes)?/);
   const sin=dm?t.replace(dm[0]," "):t;const monto=parseMonto(sin);
   if(!(monto>0))return {respuesta:fijosSummary()};
   const tipo=INC.test(t)||/sueldo|salario|quincena|n[oó]mina/.test(t)?"i":"g";
   let cat="Otros";for(const c of CATS[tipo])if(KW[c]&&KW[c].test(t)){cat=c;break}
-  let desc=sin.replace(/(\d[\d.,]*)\s*(millones?|mill[oó]n|mil|k|lucas?|palos?)?|medio palo|un palo/," ")
+  let desc=sin.replace(MONTO_RE," ")
     .replace(/(^|\s)(gastos?|ingresos?|fij[oa]s?|cada|mes|todos|los|meses|mensual(mente)?|recurrente|pago|pagar|pagu[eé]|de|del|el|la|en|por|me|un|una|al|pesos|anota|agrega|pon|crea|como)(?=\s|$)/g," ").replace(/\s+/g," ").trim();
   desc=desc?desc.charAt(0).toUpperCase()+desc.slice(1):cat;
   return {fijo:{crear:{tipo,monto,cat,desc,dia:dm?Math.min(31,Math.max(1,+dm[1])):new Date().getDate()}}};
@@ -526,7 +542,9 @@ async function abonarMeta(id,monto){
 // respaldo local: "meta ahorrar 2 palos para diciembre", "ahorré 200 mil para la moto", "saqué 100 mil de la meta", "¿cómo van mis metas?"
 function localMeta(text){
   const t=text.toLowerCase(),monto=parseMonto(t.replace(/\b20\d\d\b/g," ").replace(/en\s+\d{1,2}\s+mes(es)?/," "));
-  const abono=/(ahorr[eé](?!\w)|abon[oéa]|le met[ií]|guard[eé]|aport[eé])/.test(t),saca=/(saqu[eé]|retir[eé]|sac[oó]|saca|tom[eé])/.test(t)&&/meta|ahorr/.test(t);
+  // "le metí 40 barras a la moto" es un gasto, salvo que hable de la meta o la nombre
+  const leMeti=/le met[ií]/.test(t)&&(/meta|ahorr/.test(t)||cfg.metas.some(m=>t.includes(m.nombre.toLowerCase())));
+  const abono=leMeti||/(ahorr[eé](?!\w)|abon[oéa]|guard[eé]|aport[eé])/.test(t),saca=/(saqu[eé]|retir[eé]|sac[oó]|saca|tom[eé])/.test(t)&&/meta|ahorr/.test(t);
   if(/(borra|elimina|quita|cancela)/.test(t)&&/\bmeta/.test(t)){const m=findMeta(t);return m?{meta:{quitar:m.id}}:{respuesta:"¿Cuál meta quieres quitar? "+metasSummary()}}
   if((abono||saca)&&monto>0){
     if(!cfg.metas.length)return {respuesta:"Aún no tienes metas de ahorro. Créala primero, por ejemplo: “meta ahorrar 2 palos para diciembre”."};
@@ -535,7 +553,7 @@ function localMeta(text){
   }
   if(/\bmeta|quiero ahorrar|voy a ahorrar|ahorrar\b/.test(t)&&monto>0){
     const limite=limiteIn(t);
-    let nombre=t.replace(/(\d[\d.,]*)\s*(millones?|mill[oó]n|mil|k|lucas?|palos?)?|medio palo|un palo|\b20\d\d\b|fin de a[ñn]o|en\s+\d{1,2}\s+mes(es)?/g," ");
+    let nombre=t.replace(MONTO_G," ").replace(/\b20\d\d\b|fin de a[ñn]o|en\s+\d{1,2}\s+mes(es)?/g," ");
     MESES.forEach(x=>{nombre=nombre.replace(new RegExp("\\b"+x+"\\b","g")," ")});
     nombre=nombre.replace(/[¿?¡!.,]/g," ").replace(/(^|\s)(nueva|crea|crear|pon|meta|de|ahorro|ahorrar|quiero|voy|a|para|el|la|los|las|un|una|mi|mis|en|antes|al|pesos)(?=\s|$)/g," ").replace(/\s+/g," ").trim();
     nombre=nombre?nombre.charAt(0).toUpperCase()+nombre.slice(1):limite?mesNombre(limite).charAt(0).toUpperCase()+mesNombre(limite).slice(1):"Ahorro";
@@ -707,7 +725,7 @@ function localDeuda(text){
     return /deuda|prest|debe|debo/.test(t)?{respuesta:"No encontré esa deuda. "+deudasSummary(pagoMe?"me":"yo")}:null}
   const yo=/(le debo|les debo|me prest[oó]|me prestaron|ped[ií] prestad|\bdebo\b)/.test(t),me=!yo&&/(prest[eé]|me debe|me deben|fi[eé])/.test(t);
   if((me||yo)&&monto>0){
-    let r=t.replace(/(\d[\d.,]*)\s*(millones?|mill[oó]n|mil|k|lucas?|palos?)?|medio palo|un palo/g," "),desc="";
+    let r=t.replace(MONTO_G," "),desc="";
     const pm=r.match(/\s(para|por|del|de la|de los)\s+(.+)$/);if(pm){desc=pm[2].replace(/[¿?¡!.,]/g," ").trim().replace(/^(el|la|los|las|un|una)\s+/,"");r=r.slice(0,pm.index)}
     const quien=r.replace(/[¿?¡!.,]/g," ").replace(/(^|\s)(le|les|me|te|yo|prest[eé]|prest[oó]|prestaron|prestado|prestada|ped[ií]|debe|deben|debo|fi[eé]|a|al|mi|mis|de|la|el|los|las|un|una|plata|pesos|hoy|ayer|antier|que|ya|lo|y|en|como|tengo|anota)(?=\s|$)/g," ")
       .replace(/\s+/g," ").trim().split(" ").filter(Boolean).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").slice(0,30);
@@ -964,14 +982,19 @@ function clean(m){
   return {tipo:tp,monto,cat:CATS[tp].includes(m.cat)?m.cat:"Otros",desc:String(m.desc||"").slice(0,60),
     fecha:/^\d{4}-\d{2}-\d{2}$/.test(m.fecha||"")?m.fecha:today(),...(m.cuenta&&cuentaById(m.cuenta)?{cuenta:m.cuenta}:{})};
 }
-const KW={Comida:/almuer|comida|desayun|cena|mercado|restaur|caf[eé]|pan|fruta|super|onces/,Transporte:/moto|taxi|bus|gasolin|uber|pasaje|transporte|peaje/,
-  Vivienda:/arriendo|alquiler|casa|hipoteca/,Servicios:/luz|agua|\bgas\b|internet|celular|plan|servicio|netflix|spotify/,Salud:/droguer|medic|farmac|doctor|cita|eps/,
-  Entretenimiento:/cine|fiesta|salida|juego|cerveza|trago|concierto|ocio|rumba/,Ropa:/ropa|zapat|tenis|camisa/,Educación:/curso|libro|matr[ií]cula|universidad|maestr/,
-  Salario:/salario|sueldo|quincena|n[oó]mina|prima\b/,Clientes:/cliente|asesor|entrenamiento|sesi[oó]n|honorario|freelance|proyecto|trabajito|factura/,Ventas:/vend|venta/,Regalo:/regal/};
+// incluye la jerga y las cosas del Caribe: fritos, arepa de huevo, mototaxi, Transmetro, Air-e, Triple A, polas, picó…
+const KW={Comida:/almuer|comida|desayun|cena|mercado|restaur|caf[eé]|\bpan\b|panader|fruta|super|onces|fritos?\b|arepa|empanada|carima[ñn]ola|butifarra|\bbollos?\b|patac[oó]n|mote\b|sancocho|friche|cayeye|raspao|chicharr|salpic[oó]n|chuzo|pescao|pescado|mojarra|bocachico|corrientazo|tinto|jugo|avena|kola|mecato|tienda|asadero|fritanga/,
+  Transporte:/moto|taxi|bus|gasolin|uber|pasaje|transporte|peaje|colectivo|transmetro|transcaribe|chiva|lancha/,
+  Vivienda:/arriendo|alquiler|casa|hipoteca|pieza|cuarto|apartamento/,Servicios:/luz|agua|\bgas\b|internet|celular|plan|servicio|netflix|spotify|energ[ií]a|air-?e\b|electricaribe|afinia|triple a|gases del caribe|surtigas|acuacar|essmar|recarga|minutos|datos/,
+  Salud:/droguer|medic|farmac|doctor|cita|eps|seguridad social|pensi[oó]n(?! del colegio)|\barl\b|remedio|pastilla/,
+  Entretenimiento:/cine|fiesta|salida|juego|cerveza|trago|concierto|ocio|rumba|polas?\b|fr[ií]as\b|birra|\bron\b|guaro|whisky|pic[oó](?![a-zñ])|verbena|parranda|estadero|caseta|carnaval|champeta|vallenato|partido|junior|bailadero|chance|loter[ií]a/,
+  Ropa:/ropa|zapat|tenis|camisa|chancleta|abarca|pantaloneta|guayabera|bluy[ií]n|sombrero/,Educación:/curso|libro|matr[ií]cula|universidad|maestr|colegio/,
+  Salario:/salario|sueldo|quincena|n[oó]mina|prima\b/,Clientes:/cliente|asesor|entrenamiento|sesi[oó]n|honorario|freelance|proyecto|trabajito|factura|camell|rebusque|vueltica|vuelta\b|chamba/,Ventas:/vend|venta/,Regalo:/regal/};
 // ingresos: "me pagaron", "me acaban de pagar", "me consignaron", "me transfirieron", "me llegó", "me entró", "llegó la quincena"…
-// ojo: "me cobraron", "pagué" y "me toca pagar" son gastos
-const INC=/(recib|gan[eé]|ingres|cobr[eé](?![a-zñ])|vend[ií]|me\s+(?:(?:acaba[nr]?|acabaron|acab[oó]|han|ha|hab[ií]an?)\s+(?:de\s+)?)?(?:pag|consign|transf|gir|deposit|abon|lleg|entr|cay|dieron|dio\b|regal|cancel)|(?:lleg[oó]|entr[oó]|cay[oó]|pagaron)\s+(?:el|la|mi)\s+(?:sueldo|salario|quincena|n[oó]mina|prima|pago)|\b(?:pagaron|consignaron|transfirieron|giraron|depositaron)\b|\bconsignaci[oó]n|\bdep[oó]sito)/;
-const GAS=/(gast|pagu|compr|me\s+cobr|me\s+toca\s+pagar|tengo\s+que\s+pagar|debo\s+pagar|hice\s+(?:una|un)\s+(?:consignaci|dep[oó]sito))/;
+// ojo: "me cobraron", "pagué" y "me toca pagar" son gastos; "el recibo de la luz" es una factura, no plata que llega
+const INC=/(recib(?!os?(?![a-zñ]))|gan[eé]|ingres|cobr[eé](?![a-zñ])|vend[ií]|me\s+(?:(?:acaba[nr]?|acabaron|acab[oó]|han|ha|hab[ií]an?)\s+(?:de\s+)?)?(?:pag|consign|transf|gir|deposit|abon|lleg|entr|cay|dieron|dio\b|regal|cancel|solt(?:aron|[oó](?![a-zñ]))|mand(?:aron|[oó](?![a-zñ])))|me\s+hice\s+(?=\d)|(?:lleg[oó]|entr[oó]|cay[oó]|pagaron)\s+(?:el|la|mi)\s+(?:sueldo|salario|quincena|n[oó]mina|prima|pago)|\b(?:pagaron|consignaron|transfirieron|giraron|depositaron)\b|\bconsignaci[oó]n|\bdep[oó]sito)/;
+// costeño: "boté 30 barras en la rumba", "solté 20 lucas", "me clavaron 50 mil", "le metí 40 barras a la moto"
+const GAS=/(gast|pagu|compr|me\s+cobr|me\s+toc[aó]\s+(?:pagar|soltar|poner)|tengo\s+que\s+pagar|debo\s+pagar|hice\s+(?:una|un)\s+(?:consignaci|dep[oó]sito)|\bbot[eé](?![a-zñ])|\bsolt[eé](?![a-zñ])|me\s+(?:clavaron|tumbaron|robaron|bajaron)|le\s+met[ií](?![a-zñ])|\bpus[eé](?![a-zñ]))/;
 // descripción de un ingreso cuando el mensaje solo dice el verbo: "me consignaron 400 mil" → "Consignación"
 function descIngreso(p,cat){
   if(cat!=="Otros")return cat==="Clientes"?"Pago de cliente":cat;
@@ -980,17 +1003,19 @@ function descIngreso(p,cat){
 function localParse(text){
   const t=text.toLowerCase();const out=[];
   const fecha=/antier|anteayer/.test(t)?isoOffset(-2):/ayer/.test(t)?isoOffset(-1):today();
-  let tipo=INC.test(t)?"i":"g";const todas=cuentasIn(t);
-  for(const p of t.split(/\s*(?:,|;|\by\b(?=[^\d]*\d))\s*/).filter(Boolean)){
+  let tipo=INC.test(t)?"i":"g";const todas=cuentasIn(t);let sinMonto="";
+  for(let p of t.split(/\s*(?:,(?!\d)|;|\by\b(?=[^\d]*\d))\s*/).filter(Boolean)){
+    // "una arepa de huevo y una kola 7 barras": lo que no trae monto se junta con lo que sigue
+    if(sinMonto){p=sinMonto+" "+p;sinMonto=""}
     const cp=cuentasIn(p),cuenta=(cp[0]||todas[0]||{}).id;
-    const mm=p.match(/(\d[\d.,]*)\s*(millones?|mill[oó]n|mil|k|lucas?|palos?)?|medio (?:palo|mill[oó]n)|un (?:palo|mill[oó]n)/);if(!mm)continue;
-    let n=mm[1]?Number(mm[1].replace(/[.,](?=\d{3}\b)/g,"").replace(",",".")):/medio/.test(mm[0])?5e5:1e6;
-    const u=mm[2]||"";if(/mill|palo/.test(u))n*=1e6;else if(/mil|k|luca/.test(u))n*=1000;
+    const mm=montoMatch(p);if(!mm){sinMonto=p;continue}
+    const n=montoDe(mm);
     if(GAS.test(p)&&!INC.test(p.replace(GAS," ")))tipo="g";else if(INC.test(p))tipo="i";
     let cat="Otros";for(const c of CATS[tipo])if(KW[c]&&KW[c].test(p)){cat=c;break}
     let desc=sinCuenta(p.replace(mm[0]," "),cp);
     desc=desc.replace(/[¿?¡!.,]/g," ");
-    for(let k=0;k<2;k++)desc=desc.replace(/(^|\s)(gast[eé]|pagu[eé]|pag[oó]|pagar(on)?|compr[eé]|en|de|del|el|la|los|las|por|me|mi|un|una|y|ya|que|se|le|recib[ií]|hoy|ayer|antier|anteayer|pesos|plata|acab[oóa]n?|acabaron|acabar|han|ha|hab[ií]an?|consign\w*|transf\w*|gir[oóa]\w*|deposit\w*|abon\w*|lleg[oóa]\w*|entr[oóa]\w*|cay[oó]\w*|dieron|dio|regal\w*|cancel\w*|gan[eé]|cobr[eé]|vend[ií]|ingres\w*|cobraron|toca|tengo|debo|hice|para)(?=\s|$)/g," ");
+    desc=desc.replace(/\btriple a\b/,"triple A");
+    for(let k=0;k<2;k++)desc=desc.replace(/(^|\s)(gast[eé]|gastar|pagu[eé]|pag[oó]|pagar(on)?|compr[eé]|en|de|del|el|la|los|las|por|me|mi|un|una|y|ya|que|se|le|recib[ií]|hoy|ayer|antier|anteayer|pesos|plata|acab[oóa]n?|acabaron|acabar|han|ha|hab[ií]an?|consign\w*|transf\w*|gir[oóa]\w*|deposit\w*|abon\w*|lleg[oóa]\w*|entr[oóa]\w*|cay[oó]\w*|dieron|dio|regal\w*|cancel\w*|gan[eé]|cobr[eé]|vend[ií]|ingres\w*|cobraron|toca|toc[oó]|tengo|debo|hice|para|bot[eé]|solt[a-zñáéíóú]*|mand[a-zñáéíóú]*|a|al|clavaron|tumbaron|robaron|bajaron|met[ií]|pus[eé]|poner|soltar|pagao|gastao|comprao|botao|ajá|aja|compa|mano|primo|vale|nojoda|eche|erda)(?=\s|$)/g," ");
     desc=desc.replace(/\s+/g," ").trim();
     if(tipo==="i"&&!desc)desc=descIngreso(p,cat);
     const r=clean({tipo,monto:n,cat,desc:desc.charAt(0).toUpperCase()+desc.slice(1),fecha,cuenta});if(r)out.push(r);
@@ -1011,14 +1036,10 @@ function catIn(t,tipo){
   if(tipo==="g")for(const a in ALIAS)if(t.includes(a))return ALIAS[a];
   return null;
 }
-// monto en un texto, con la jerga: "600 mil", "120 lucas", "1,5 palos", "medio palo", "600.000"
+// monto en un texto, con la jerga: "600 mil", "120 lucas", "50 barras", "1,5 palos", "medio palo", "600.000"
 function parseMonto(t){
-  if(/medio (palo|mill[oó]n)/.test(t))return 500000;
-  const mm=t.match(/(\d[\d.,]*)\s*(millones?|mill[oó]n|mil|k|lucas?|palos?)?/);
-  if(!mm){if(/\bun (palo|mill[oó]n)\b/.test(t))return 1e6;return 0}
-  let n=Number(mm[1].replace(/[.,](?=\d{3}\b)/g,"").replace(",","."));
-  const u=mm[2]||"";if(/mill|palo/.test(u))n*=1e6;else if(/mil|k|luca/.test(u))n*=1000;
-  return n>0?Math.round(n):0;
+  const mm=montoMatch(t);if(!mm)return 0;
+  const n=montoDe(mm);return n>0?Math.round(n):0;
 }
 function budgetRows(ym){
   const s=monthStats(ym);
@@ -1076,7 +1097,7 @@ function localAnswer(text){
   if(/(cambia|pasa|mueve|pon|era).*(categor|últim|ultim)/.test(t)){const l=lastItem();const c=l&&catIn(t,l.tipo);if(c)return {cambiarUltimo:c}}
   const ci=catIn(t,"i");if(ci&&!/gast/.test(t))return {respuesta:`Este mes te han entrado ${fmt(s.byCatI[ci]||0)} por ${ci}.`};
   const cg=catIn(t,"g");if(cg){const lim=cfg.presupuestos[cg];return {respuesta:`Este mes llevas ${fmt(s.byCat[cg]||0)} en ${cg}`+(lim?`, de un presupuesto de ${fmt(lim)}.`:".")}}
-  if(/saldo|resumen|cu[aá]nto|c[oó]mo voy|gast/.test(t))
+  if(/saldo|resumen|cu[aá]nto|c[oó]mo voy|c[oó]mo vamos|qu[eé] hubo|gast|bot[eé]|botao|botado/.test(t))
     return {respuesta:`Este mes: ingresos ${fmt(s.tin)}, gastos ${fmt(s.tout)}. Saldo ${s.tin-s.tout<0?"−":""}${fmt(Math.abs(s.tin-s.tout))}.`};
   return {respuesta:"No encontré ningún monto. Prueba así: “gasté 20 mil en almuerzo” o pregúntame “¿cómo voy este mes?”."};
 }
@@ -1088,9 +1109,10 @@ async function ask(text){
   const ult=[...items].sort((x,y)=>(y.t||0)-(x.t||0)).slice(0,15).map(x=>({tipo:x.tipo==="i"?"ingreso":"gasto",monto:x.monto,cat:x.cat,desc:x.desc,fecha:x.fecha}));
   const prompt=`Eres el asistente de una app de finanzas personales que funciona como un chat de WhatsApp. Hablas español colombiano, cálido y muy breve (1-2 frases), sin emojis en exceso.
 Hoy es ${today()}. Moneda: pesos colombianos (COP). Formatea montos como $25.000.
-Jerga: "mil"=1.000, "luca(s)"=1.000, "palo"/"millón"=1.000.000, "medio palo"=500.000.
-Categorías de gasto: ${CATS.g.join(", ")}. Categorías de ingreso: ${CATS.i.join(", ")}. Usa exactamente uno de esos nombres. "Ocio", "diversión" o "rumba" es Entretenimiento.
-Gasto o ingreso: si a él le entra plata es INGRESO (tipo "i"): "me pagaron", "me acaban de pagar", "me consignaron", "me transfirieron", "me giraron", "me llegó", "me entró", "me cayó", "me dieron", "recibí", "cobré", "vendí", "llegó la quincena", y también "consignación 50 mil a Nequi" o "depósito de 200 mil" (plata que le llega a una de sus cuentas). Si él saca plata es GASTO (tipo "g"): "pagué", "gasté", "compré", "me cobraron", "me toca pagar", "le consigné 50 mil a Juan". Ojo: "me acaban de pagar 280 mil" es un INGRESO de 280000, no un gasto. Categoría de un ingreso: Salario si habla de sueldo, quincena, nómina o prima; Clientes si es un cliente o un trabajo que hizo; Ventas si vendió algo; Regalo si se lo regalaron; si no dice de qué es, Otros. "desc" nunca repite el verbo ("Acaban pagar" está mal): usa de qué fue si lo dice, o si no "Pago recibido", "Consignación" o "Transferencia".
+Jerga: "mil"=1.000, "luca(s)"=1.000, "barra(s)"=1.000 ("50 barras"=50.000, "una barra"=1.000), "palo"/"millón"/"melón"=1.000.000, "medio palo"=500.000.
+El usuario puede escribir como costeño (Barranquilla, Cartagena, Santa Marta): se come la "s" y la "d" ("do mil" = dos mil, "pagao" = pagado), dice "boté" o "solté" por gasté, "le metí 40 barras a la moto" (gasto), "me clavaron/tumbaron 50 mil" (gasto: le cobraron de más o lo robaron), "me soltaron" o "me mandaron 100 barras" (ingreso), "me hice 80 barras en el rebusque" (ingreso de Clientes; "camello", "vueltica" o "rebusque" es un trabajo). Palabras como "ajá", "eche", "nojoda", "erda", "compa", "mano" o "primo" son muletillas: no van en "desc". Comida costeña (fritos, arepa de huevo, carimañola, butifarra, bollo, patacón, mote, sancocho, raspao, corrientazo, tinto) es Comida; mototaxi, bicitaxi, colectivo, Transmetro, Transcaribe, chiva o lancha es Transporte; Air-e, Afinia, Electricaribe, Triple A, Gases del Caribe, Surtigas o recargas son Servicios; polas, frías, ron, picó, verbena, parranda, estadero, carnaval o el partido del Junior es Entretenimiento. Si el usuario escribe en costeño, puedes responder con un toque costeño suave ("¡Listo, compa!", "Ajá, anotado"), sin exagerar.
+Categorías de gasto: ${CATS.g.join(", ")}. Categorías de ingreso: ${CATS.i.join(", ")}. Usa exactamente uno de esos nombres. "Ocio", "diversión" o "rumba" es Entretenimiento. Recibos de luz, agua, gas o internet son Servicios. Seguridad social, EPS, pensión o ARL es Salud.
+Gasto o ingreso: si a él le entra plata es INGRESO (tipo "i"): "me pagaron", "me acaban de pagar", "me consignaron", "me transfirieron", "me giraron", "me llegó", "me entró", "me cayó", "me dieron", "recibí", "cobré", "vendí", "llegó la quincena", y también "consignación 50 mil a Nequi" o "depósito de 200 mil" (plata que le llega a una de sus cuentas). Si él saca plata es GASTO (tipo "g"): "pagué", "gasté", "compré", "me cobraron", "me toca pagar", "le consigné 50 mil a Juan", "acabo de pagar el recibo de la luz" ("recibo" ahí es la factura, no "recibí"). Ojo: "me acaban de pagar 280 mil" es un INGRESO de 280000, no un gasto. Categoría de un ingreso: Salario si habla de sueldo, quincena, nómina o prima; Clientes si es un cliente o un trabajo que hizo; Ventas si vendió algo; Regalo si se lo regalaron; si no dice de qué es, Otros. "desc" nunca repite el verbo ("Acaban pagar" está mal): usa de qué fue si lo dice, o si no "Pago recibido", "Consignación" o "Transferencia".
 El mensaje puede venir dictado por voz: puede traer números en palabras ("veinte mil"), sin puntuación o con errores de transcripción; interprétalo con sentido común.
 
 Datos del usuario:
