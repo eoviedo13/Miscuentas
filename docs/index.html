@@ -965,12 +965,12 @@ function clean(m){
     fecha:/^\d{4}-\d{2}-\d{2}$/.test(m.fecha||"")?m.fecha:today(),...(m.cuenta&&cuentaById(m.cuenta)?{cuenta:m.cuenta}:{})};
 }
 const KW={Comida:/almuer|comida|desayun|cena|mercado|restaur|caf[eé]|pan|fruta|super|onces/,Transporte:/moto|taxi|bus|gasolin|uber|pasaje|transporte|peaje/,
-  Vivienda:/arriendo|alquiler|casa|hipoteca/,Servicios:/luz|agua|\bgas\b|internet|celular|plan|servicio|netflix|spotify/,Salud:/droguer|medic|farmac|doctor|cita|eps/,
+  Vivienda:/arriendo|alquiler|casa|hipoteca/,Servicios:/luz|agua|\bgas\b|internet|celular|plan|servicio|netflix|spotify/,Salud:/droguer|medic|farmac|doctor|cita|eps|seguridad social|pensi[oó]n|\barl\b/,
   Entretenimiento:/cine|fiesta|salida|juego|cerveza|trago|concierto|ocio|rumba/,Ropa:/ropa|zapat|tenis|camisa/,Educación:/curso|libro|matr[ií]cula|universidad|maestr/,
   Salario:/salario|sueldo|quincena|n[oó]mina|prima\b/,Clientes:/cliente|asesor|entrenamiento|sesi[oó]n|honorario|freelance|proyecto|trabajito|factura/,Ventas:/vend|venta/,Regalo:/regal/};
 // ingresos: "me pagaron", "me acaban de pagar", "me consignaron", "me transfirieron", "me llegó", "me entró", "llegó la quincena"…
-// ojo: "me cobraron", "pagué" y "me toca pagar" son gastos
-const INC=/(recib|gan[eé]|ingres|cobr[eé](?![a-zñ])|vend[ií]|me\s+(?:(?:acaba[nr]?|acabaron|acab[oó]|han|ha|hab[ií]an?)\s+(?:de\s+)?)?(?:pag|consign|transf|gir|deposit|abon|lleg|entr|cay|dieron|dio\b|regal|cancel)|(?:lleg[oó]|entr[oó]|cay[oó]|pagaron)\s+(?:el|la|mi)\s+(?:sueldo|salario|quincena|n[oó]mina|prima|pago)|\b(?:pagaron|consignaron|transfirieron|giraron|depositaron)\b|\bconsignaci[oó]n|\bdep[oó]sito)/;
+// ojo: "me cobraron", "pagué" y "me toca pagar" son gastos; "el recibo de la luz" es una factura, no plata que llega
+const INC=/(recib(?!os?(?![a-zñ]))|gan[eé]|ingres|cobr[eé](?![a-zñ])|vend[ií]|me\s+(?:(?:acaba[nr]?|acabaron|acab[oó]|han|ha|hab[ií]an?)\s+(?:de\s+)?)?(?:pag|consign|transf|gir|deposit|abon|lleg|entr|cay|dieron|dio\b|regal|cancel)|(?:lleg[oó]|entr[oó]|cay[oó]|pagaron)\s+(?:el|la|mi)\s+(?:sueldo|salario|quincena|n[oó]mina|prima|pago)|\b(?:pagaron|consignaron|transfirieron|giraron|depositaron)\b|\bconsignaci[oó]n|\bdep[oó]sito)/;
 const GAS=/(gast|pagu|compr|me\s+cobr|me\s+toca\s+pagar|tengo\s+que\s+pagar|debo\s+pagar|hice\s+(?:una|un)\s+(?:consignaci|dep[oó]sito))/;
 // descripción de un ingreso cuando el mensaje solo dice el verbo: "me consignaron 400 mil" → "Consignación"
 function descIngreso(p,cat){
@@ -990,7 +990,7 @@ function localParse(text){
     let cat="Otros";for(const c of CATS[tipo])if(KW[c]&&KW[c].test(p)){cat=c;break}
     let desc=sinCuenta(p.replace(mm[0]," "),cp);
     desc=desc.replace(/[¿?¡!.,]/g," ");
-    for(let k=0;k<2;k++)desc=desc.replace(/(^|\s)(gast[eé]|pagu[eé]|pag[oó]|pagar(on)?|compr[eé]|en|de|del|el|la|los|las|por|me|mi|un|una|y|ya|que|se|le|recib[ií]|hoy|ayer|antier|anteayer|pesos|plata|acab[oóa]n?|acabaron|acabar|han|ha|hab[ií]an?|consign\w*|transf\w*|gir[oóa]\w*|deposit\w*|abon\w*|lleg[oóa]\w*|entr[oóa]\w*|cay[oó]\w*|dieron|dio|regal\w*|cancel\w*|gan[eé]|cobr[eé]|vend[ií]|ingres\w*|cobraron|toca|tengo|debo|hice|para)(?=\s|$)/g," ");
+    for(let k=0;k<2;k++)desc=desc.replace(/(^|\s)(gast[eé]|gastar|pagu[eé]|pag[oó]|pagar(on)?|compr[eé]|en|de|del|el|la|los|las|por|me|mi|un|una|y|ya|que|se|le|recib[ií]|hoy|ayer|antier|anteayer|pesos|plata|acab[oóa]n?|acabaron|acabar|han|ha|hab[ií]an?|consign\w*|transf\w*|gir[oóa]\w*|deposit\w*|abon\w*|lleg[oóa]\w*|entr[oóa]\w*|cay[oó]\w*|dieron|dio|regal\w*|cancel\w*|gan[eé]|cobr[eé]|vend[ií]|ingres\w*|cobraron|toca|tengo|debo|hice|para)(?=\s|$)/g," ");
     desc=desc.replace(/\s+/g," ").trim();
     if(tipo==="i"&&!desc)desc=descIngreso(p,cat);
     const r=clean({tipo,monto:n,cat,desc:desc.charAt(0).toUpperCase()+desc.slice(1),fecha,cuenta});if(r)out.push(r);
@@ -1089,8 +1089,8 @@ async function ask(text){
   const prompt=`Eres el asistente de una app de finanzas personales que funciona como un chat de WhatsApp. Hablas español colombiano, cálido y muy breve (1-2 frases), sin emojis en exceso.
 Hoy es ${today()}. Moneda: pesos colombianos (COP). Formatea montos como $25.000.
 Jerga: "mil"=1.000, "luca(s)"=1.000, "palo"/"millón"=1.000.000, "medio palo"=500.000.
-Categorías de gasto: ${CATS.g.join(", ")}. Categorías de ingreso: ${CATS.i.join(", ")}. Usa exactamente uno de esos nombres. "Ocio", "diversión" o "rumba" es Entretenimiento.
-Gasto o ingreso: si a él le entra plata es INGRESO (tipo "i"): "me pagaron", "me acaban de pagar", "me consignaron", "me transfirieron", "me giraron", "me llegó", "me entró", "me cayó", "me dieron", "recibí", "cobré", "vendí", "llegó la quincena", y también "consignación 50 mil a Nequi" o "depósito de 200 mil" (plata que le llega a una de sus cuentas). Si él saca plata es GASTO (tipo "g"): "pagué", "gasté", "compré", "me cobraron", "me toca pagar", "le consigné 50 mil a Juan". Ojo: "me acaban de pagar 280 mil" es un INGRESO de 280000, no un gasto. Categoría de un ingreso: Salario si habla de sueldo, quincena, nómina o prima; Clientes si es un cliente o un trabajo que hizo; Ventas si vendió algo; Regalo si se lo regalaron; si no dice de qué es, Otros. "desc" nunca repite el verbo ("Acaban pagar" está mal): usa de qué fue si lo dice, o si no "Pago recibido", "Consignación" o "Transferencia".
+Categorías de gasto: ${CATS.g.join(", ")}. Categorías de ingreso: ${CATS.i.join(", ")}. Usa exactamente uno de esos nombres. "Ocio", "diversión" o "rumba" es Entretenimiento. Recibos de luz, agua, gas o internet son Servicios. Seguridad social, EPS, pensión o ARL es Salud.
+Gasto o ingreso: si a él le entra plata es INGRESO (tipo "i"): "me pagaron", "me acaban de pagar", "me consignaron", "me transfirieron", "me giraron", "me llegó", "me entró", "me cayó", "me dieron", "recibí", "cobré", "vendí", "llegó la quincena", y también "consignación 50 mil a Nequi" o "depósito de 200 mil" (plata que le llega a una de sus cuentas). Si él saca plata es GASTO (tipo "g"): "pagué", "gasté", "compré", "me cobraron", "me toca pagar", "le consigné 50 mil a Juan", "acabo de pagar el recibo de la luz" ("recibo" ahí es la factura, no "recibí"). Ojo: "me acaban de pagar 280 mil" es un INGRESO de 280000, no un gasto. Categoría de un ingreso: Salario si habla de sueldo, quincena, nómina o prima; Clientes si es un cliente o un trabajo que hizo; Ventas si vendió algo; Regalo si se lo regalaron; si no dice de qué es, Otros. "desc" nunca repite el verbo ("Acaban pagar" está mal): usa de qué fue si lo dice, o si no "Pago recibido", "Consignación" o "Transferencia".
 El mensaje puede venir dictado por voz: puede traer números en palabras ("veinte mil"), sin puntuación o con errores de transcripción; interprétalo con sentido común.
 
 Datos del usuario:
