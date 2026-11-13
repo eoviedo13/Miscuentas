@@ -18,19 +18,17 @@ Hazlo desde un computador si puedes; en el celular también se puede. No cuesta 
 4. Comprueba en **Table Editor**: deben aparecer `movimientos`, `ajustes` y `perfiles`, cada una con el aviso de RLS activo.
 
 ## 3. Activar el inicio de sesión con correo
-1. **Authentication** → **Providers** → **Email** debe estar activado (viene así por defecto).
+1. **Authentication** → **Sign In / Providers** → **Email** debe estar activado (viene así por defecto).
 2. **Authentication** → **URL Configuration**:
    - **Site URL:** `https://eoviedo13.github.io/miscuentas/`
    - En **Redirect URLs** agrega la misma dirección.
 
-## 3b. Cómo se entra a la app
-La app te manda un **enlace al correo** y entras con un toque, sin contraseñas. No hay que cambiar nada en las plantillas de correo (con el correo gratis de Supabase no se pueden editar).
-- Abre el enlace **desde el mismo celular** donde instalaste la app.
-- El correo gratis tiene un tope bajo de envíos por hora; como la sesión queda abierta, casi no lo notarás.
-- **Cuando ya hayas entrado una vez:** **Authentication → Sign In / Providers** y apaga **Allow new users to sign up**, para que nadie más pueda crear cuentas en tu proyecto.
-
-## 3c. Tiempo real (opcional pero recomendado)
-En **SQL Editor**, pega y corre `supabase/migrations/002_tiempo_real.sql`. Así lo que anote el bot de WhatsApp aparece al instante en la app.
+## 3b. Crear tu usuario (una sola vez, sin correos)
+La app entra con correo y contraseña. Tú creas el usuario a mano y Supabase no manda ningún correo:
+1. **Authentication → Users → Add user → Create new user**.
+2. Escribe tu correo y una contraseña que puedas recordar (mínimo 8 caracteres).
+3. Marca **Auto Confirm User** y crea el usuario.
+4. Luego, en **Authentication → Sign In / Providers**, apaga **Allow new users to sign up**. Así solo existes tú.
 
 ## 4. Copiar dos datos para la app
 En **Project Settings** (engranaje) → **API** copia:

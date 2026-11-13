@@ -12,7 +12,7 @@ Libreta de finanzas personales que funciona como un chat: escribes lo que gastas
 `docs/` es la misma app de Claude empaquetada para instalarse en el celular: `index.html`,
 `manifest.webmanifest`, `sw.js` (service worker para abrir sin internet) e `icons/`.
 
-- Con sesión iniciada (código por correo), los datos viven en Supabase (`supabase/migrations/`, `docs/nube.js`) y se ven
+- Con sesión iniciada (correo y contraseña), los datos viven en Supabase (`supabase/migrations/`, `docs/nube.js`) y se ven
   en todos tus dispositivos. Sin cuenta, quedan en el dispositivo (`localStorage` "mis-cuentas" y "mis-cuentas-ajustes").
 - Sin las capacidades del artifact, los mensajes los entiende el parser local
   (`localParse`/`localAnswer`) y no aparece el botón de foto de facturas.

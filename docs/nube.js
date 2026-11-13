@@ -1,4 +1,4 @@
-// Conexión de Mis Cuentas con Supabase: inicio de sesión por correo y almacenes de datos.
+// Conexión de Mis Cuentas con Supabase: inicio de sesión con correo y contraseña, y almacenes de datos.
 // La URL y la clave "publishable" son públicas por diseño; lo que protege los datos es la
 // seguridad por usuario (RLS) de las tablas. Nunca pongas aquí la clave "secret" ni "service_role".
 (function () {
@@ -6,7 +6,7 @@
   const KEY = "sb_publishable_-ahla1dCYBt_i85PZV0hvw_jVyULNiQ";
   if (!window.supabase) return; // sin la librería la app sigue funcionando solo en el dispositivo
   const sb = window.supabase.createClient(URL, KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
   });
 
   // Las filas de la base y los movimientos de la app se llaman distinto en "desc"/"descr".
@@ -66,11 +66,8 @@
 
   window.Nube = {
     async sesion() { return (await sb.auth.getSession()).data.session; },
-    enviarCodigo: (email) => sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } }),
-    verificar: (email, token) => sb.auth.verifyOtp({ email, token, type: "email" }),
+    entrar: (email, password) => sb.auth.signInWithPassword({ email, password }),
     salir: () => sb.auth.signOut(),
-    // al abrir el enlace del correo (en esta pestaña o en otra del mismo navegador) la sesión llega aquí
-    alIniciarSesion: (fn) => sb.auth.onAuthStateChange((ev, ses) => { if (ev === "SIGNED_IN" && ses) fn(ses); }),
     alCerrarSesion: (fn) => sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") fn(); }),
     almacenes(uid) {
       return {
