@@ -23,6 +23,22 @@ Hazlo desde un computador si puedes; en el celular también se puede. No cuesta 
    - **Site URL:** `https://eoviedo13.github.io/miscuentas/`
    - En **Redirect URLs** agrega la misma dirección.
 
+## 3b. Que el correo traiga el código de 6 números
+La app entra con un código que llega al correo, no con un enlace. Por defecto Supabase manda un enlace, así que hay que cambiar la plantilla:
+1. **Authentication** → **Emails** → plantilla **Magic link** (en algunas versiones: *Email Templates*).
+2. Cambia el **asunto** a `Tu código de Mis Cuentas`.
+3. En el **cuerpo**, reemplaza todo por:
+   ```html
+   <p>Tu código para entrar a Mis Cuentas es:</p>
+   <h2>{{ .Token }}</h2>
+   <p>Si no lo pediste tú, ignora este correo.</p>
+   ```
+4. Guarda. Ojo: el correo gratis de Supabase tiene un tope bajo de envíos por hora; como la sesión se mantiene abierta, casi no lo notarás.
+5. **Cuando ya hayas entrado una vez:** **Authentication → Sign In / Providers** y apaga **Allow new users to sign up**, para que nadie más pueda crear cuentas en tu proyecto.
+
+## 3c. Tiempo real (opcional pero recomendado)
+En **SQL Editor**, pega y corre `supabase/migrations/002_tiempo_real.sql`. Así lo que anote el bot de WhatsApp aparece al instante en la app.
+
 ## 4. Copiar dos datos para la app
 En **Project Settings** (engranaje) → **API** copia:
 - **Project URL** (algo como `https://abcdefgh.supabase.co`)

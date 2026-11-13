@@ -133,6 +133,17 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 .del{border:0;background:transparent;color:var(--muted);min-width:32px;height:32px;border-radius:8px;cursor:pointer}
 .del.confirm{background:var(--out);color:#fff;padding:0 8px;font:600 .75rem var(--body)}
 .status{font-size:.75rem;color:var(--muted);text-align:center;margin:0}
+.login{position:fixed;inset:0;z-index:40;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
+.loginbox{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:grid;gap:12px}
+.loginbox h2{margin:0;font-family:var(--display);font-size:1.4rem}
+.loginbox p{margin:0;color:var(--muted);font-size:.92rem;line-height:1.4}
+.loginbox form{display:grid;gap:10px}
+.loginbox input{font:inherit;font-size:1rem;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:100%}
+.loginbox button{font:inherit;font-weight:600;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.loginbox button.ok{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.loginbox button:disabled{opacity:.6}
+.loginbox .lskip{border:0;background:none;color:var(--muted);font-weight:500;font-size:.82rem;text-decoration:underline}
+.loginbox .lerr{color:var(--out)}
 /* presupuestos */
 #budgets{display:flex;flex-direction:column;gap:2px;margin:0 -8px}
 .bud{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font:inherit;font-size:.9rem;color:inherit;text-align:left;width:100%;border:0;background:transparent;border-radius:10px;padding:7px 8px;cursor:pointer}
@@ -240,6 +251,16 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
   </form>
 </div>
 
+<div class="login" id="login" hidden>
+  <div class="loginbox" role="dialog" aria-labelledby="ltit">
+    <h2 id="ltit">Entra a Mis Cuentas</h2>
+    <p id="lintro">Te mando un código de 6 números a tu correo. Sin contraseñas, y tus cuentas quedan guardadas en tu cuenta, no solo en este celular.</p>
+    <form id="lform1"><input type="email" id="lmail" placeholder="tu correo" autocomplete="email" inputmode="email" required aria-label="Correo"><button type="submit" class="ok" id="lsend">Enviar código</button></form>
+    <form id="lform2" hidden><input type="text" id="lcode" placeholder="código del correo" autocomplete="one-time-code" inputmode="numeric" maxlength="10" required aria-label="Código"><button type="submit" class="ok" id="lgo">Entrar</button><button type="button" id="lback">Cambiar correo</button></form>
+    <p class="lerr" id="lerr" role="alert" hidden></p>
+    <button type="button" class="lskip" id="lskip">Usar sin cuenta (se guarda solo en este dispositivo)</button>
+  </div>
+</div>
 <div class="sheet" id="sheet" hidden>
   <div class="panel" role="dialog" aria-label="Resumen del mes">
     <div class="ph">
@@ -348,10 +369,16 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
       <input type="file" id="copiafile" accept=".json,application/json" hidden>
     </section>
     <section class="card export"><p>Descarga todos tus movimientos y el resumen de cada mes en un archivo de Excel.</p><button type="button" id="xlsx">Exportar a Excel</button></section>
+    <section class="card" id="sesCard" hidden><div class="ch"><h3>Tu cuenta</h3></div>
+      <p class="hint" style="font-size:.85rem" id="sess"></p>
+      <div class="btnrow"><button type="button" id="logout">Cerrar sesión</button></div>
+    </section>
     <p class="status" id="status">Conectando…</p>
   </div>
 </div>
 
+<script src="supabase.js"></script>
+<script src="nube.js"></script>
 <script>
 const CATS={g:["Comida","Transporte","Vivienda","Servicios","Salud","Entretenimiento","Ropa","Educación","Otros"],
             i:["Salario","Clientes","Ventas","Regalo","Otros"]};
@@ -1657,6 +1684,70 @@ $("bform").addEventListener("submit",async e=>{e.preventDefault();
   closeBudForm();if(!await setBudget(cat,n))$("status").textContent="No se pudo guardar el presupuesto. Revisa tu conexión."});
 $("brm").onclick=async()=>{const cat=budEdit;closeBudForm();if(cat&&!await setBudget(cat,0))$("status").textContent="No se pudo quitar el presupuesto. Revisa tu conexión."};
 
+
+/* ---------- cuenta en la nube (Supabase) ---------- */
+let nubeOn=false;
+const CACHE_MOV="mis-cuentas-nube",CACHE_CFG="mis-cuentas-nube-ajustes",SIN_CUENTA="mis-cuentas-sin-cuenta";
+// copia local de lo último que llegó de la nube, para ver tus cuentas aunque no haya internet
+function cacheNubeGuardar(){try{localStorage.setItem(CACHE_MOV,JSON.stringify(items));localStorage.setItem(CACHE_CFG,JSON.stringify(cfg))}catch(x){}}
+function cacheNubeCargar(){
+  try{items=JSON.parse(localStorage.getItem(CACHE_MOV)||"[]")}catch(x){items=[]}
+  try{const c=JSON.parse(localStorage.getItem(CACHE_CFG)||"{}");cfg={...cfg,...c,presupuestos:cleanBudgets(c.presupuestos),fijos:cleanFijos(c.fijos),metas:cleanMetas(c.metas),
+    deudas:cleanDeudas(c.deudas),cuentas:cleanCuentas(c.cuentas),transf:cleanTransf(c.transf),recordatorio:cleanRec(c.recordatorio)}}catch(x){}
+}
+function modoLocal(){$("login").hidden=true;$("status").textContent="Guardado solo en este dispositivo · funciona sin internet";loadLocal();render();runFijos();revisarRecordatorio()}
+async function iniciarNube(){
+  if(!window.Nube){modoLocal();return}
+  let ses=null;try{ses=await Nube.sesion()}catch(x){}
+  if(ses){conectarNube(ses);return}
+  let sin="";try{sin=localStorage.getItem(SIN_CUENTA)||""}catch(x){}
+  if(sin==="1")modoLocal();else mostrarLogin();
+}
+function conectarNube(ses){
+  const a=Nube.almacenes(ses.user.id);store=a.store;cfgStore=a.cfgStore;nubeOn=true;
+  items=[];cacheNubeCargar();render();
+  $("login").hidden=true;$("sesCard").hidden=false;$("sess").textContent="Sesión iniciada con "+ses.user.email+". Tus cuentas se guardan aquí y se ven en todos tus dispositivos.";
+  Nube.alCerrarSesion(()=>location.reload());
+  escucharAlmacenes();
+}
+let loginMail="";
+function loginError(t){$("lerr").textContent=t||"";$("lerr").hidden=!t}
+function mostrarLogin(){$("login").hidden=false;$("status").textContent="Sin iniciar sesión";$("lmail").focus()}
+function msgAuth(e){
+  const m=String(e&&e.message||"").toLowerCase();
+  if(e&&(e.status===429||/rate|seconds|too many/.test(m)))return "Pediste muchos códigos seguidos. Espera unos minutos e inténtalo otra vez.";
+  if(/invalid|expired|token/.test(m))return "Ese código no sirve o ya venció. Revisa que sea el último que te llegó.";
+  if(/network|fetch|failed/.test(m)||!navigator.onLine)return "No hay conexión. Revisa tu internet e inténtalo otra vez.";
+  return "Algo falló. Inténtalo otra vez.";
+}
+$("lform1").onsubmit=async ev=>{ev.preventDefault();
+  loginMail=$("lmail").value.trim().toLowerCase();if(!loginMail)return;
+  loginError("");$("lsend").disabled=true;
+  const {error}=await Nube.enviarCodigo(loginMail).catch(e=>({error:e}));$("lsend").disabled=false;
+  if(error){loginError(msgAuth(error));return}
+  $("lform1").hidden=true;$("lform2").hidden=false;$("lintro").textContent="Te mandé un código a "+loginMail+". Revisa también la carpeta de spam.";$("lcode").focus()};
+$("lform2").onsubmit=async ev=>{ev.preventDefault();
+  const code=$("lcode").value.replace(/\D/g,"");if(!code)return;
+  loginError("");$("lgo").disabled=true;
+  const {data,error}=await Nube.verificar(loginMail,code).catch(e=>({error:e}));$("lgo").disabled=false;
+  if(error||!data||!data.session){loginError(msgAuth(error));return}
+  try{localStorage.removeItem(SIN_CUENTA)}catch(x){}
+  conectarNube(data.session)};
+$("lback").onclick=()=>{$("lform2").hidden=true;$("lform1").hidden=false;$("lcode").value="";loginError("");$("lintro").textContent="Te mando un código de 6 números a tu correo. Sin contraseñas, y tus cuentas quedan guardadas en tu cuenta, no solo en este celular."};
+$("lskip").onclick=()=>{try{localStorage.setItem(SIN_CUENTA,"1")}catch(x){}modoLocal()};
+$("logout").onclick=async()=>{if(!confirm("¿Cerrar sesión? Tus cuentas siguen guardadas en la nube."))return;
+  try{localStorage.removeItem(CACHE_MOV);localStorage.removeItem(CACHE_CFG)}catch(x){}
+  await Nube.salir().catch(()=>{});location.reload()};
+function escucharAlmacenes(){
+  let gotCfg=false,gotItems=false;const ready=()=>{if(gotCfg&&gotItems){runFijos();revisarRecordatorio()}};
+  cfgStore.onSnapshot(s=>{const d=s.docs.find(x=>x.id==="presupuestos"),f=s.docs.find(x=>x.id==="fijos");
+    const mt=s.docs.find(x=>x.id==="metas"),g=k=>{const x=s.docs.find(y=>y.id===k);return x&&x.data()};
+    cfg={...cfg,presupuestos:cleanBudgets(d&&d.data()),fijos:cleanFijos(f&&f.data().lista),metas:cleanMetas(mt&&mt.data().lista),
+      deudas:cleanDeudas((g("deudas")||{}).lista),cuentas:cleanCuentas(g("cuentas")),transf:cleanTransf((g("transferencias")||{}).lista),recordatorio:cleanRec(g("recordatorio"))};render();if(nubeOn)cacheNubeGuardar();gotCfg=true;ready()},()=>{});
+  store.onSnapshot(s=>{items=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>(x.tipo==="g"||x.tipo==="i")&&typeof x.fecha==="string");render();if(nubeOn)cacheNubeGuardar();$("status").textContent="Guardado en tu cuenta · privado";gotItems=true;ready()},
+    ()=>{$("status").textContent="Sin conexión con tus datos. Recarga la página."});
+}
+
 loadLocal();render();$("chat").scrollTop=$("chat").scrollHeight;
 
 if(window.claude){
@@ -1669,15 +1760,9 @@ if(window.claude){
     if(!db||!uid){$("status").textContent="Guardado solo en este navegador.";runFijos();revisarRecordatorio();return}
     store=db.collection("data/users/"+uid);
     cfgStore=db.doc("data/users/"+uid+"/ajustes").collection("cfg"); // presupuestos y demás ajustes, aparte de los movimientos
-    let gotCfg=false,gotItems=false;const ready=()=>{if(gotCfg&&gotItems){runFijos();revisarRecordatorio()}};
-    cfgStore.onSnapshot(s=>{const d=s.docs.find(x=>x.id==="presupuestos"),f=s.docs.find(x=>x.id==="fijos");
-      const mt=s.docs.find(x=>x.id==="metas"),g=k=>{const x=s.docs.find(y=>y.id===k);return x&&x.data()};
-      cfg={...cfg,presupuestos:cleanBudgets(d&&d.data()),fijos:cleanFijos(f&&f.data().lista),metas:cleanMetas(mt&&mt.data().lista),
-        deudas:cleanDeudas((g("deudas")||{}).lista),cuentas:cleanCuentas(g("cuentas")),transf:cleanTransf((g("transferencias")||{}).lista),recordatorio:cleanRec(g("recordatorio"))};render();gotCfg=true;ready()},()=>{});
-    store.onSnapshot(s=>{items=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>(x.tipo==="g"||x.tipo==="i")&&typeof x.fecha==="string");render();$("status").textContent="Guardado en tu cuenta · privado";gotItems=true;ready()},
-      ()=>{$("status").textContent="Sin conexión con tus datos. Recarga la página."});
+    escucharAlmacenes();
   })();
-}else{$("status").textContent="Guardado solo en este dispositivo · funciona sin internet";runFijos();revisarRecordatorio()}
+}else iniciarNube();
 </script>
 <script>
 /* ---------- app instalable (PWA): service worker, botón de instalar y accesos directos ---------- */
