@@ -254,9 +254,9 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 <div class="login" id="login" hidden>
   <div class="loginbox" role="dialog" aria-labelledby="ltit">
     <h2 id="ltit">Entra a Mis Cuentas</h2>
-    <p id="lintro">Te mando un código de 6 números a tu correo. Sin contraseñas, y tus cuentas quedan guardadas en tu cuenta, no solo en este celular.</p>
-    <form id="lform1"><input type="email" id="lmail" placeholder="tu correo" autocomplete="email" inputmode="email" required aria-label="Correo"><button type="submit" class="ok" id="lsend">Enviar código</button></form>
-    <form id="lform2" hidden><input type="text" id="lcode" placeholder="código del correo" autocomplete="one-time-code" inputmode="numeric" maxlength="10" required aria-label="Código"><button type="submit" class="ok" id="lgo">Entrar</button><button type="button" id="lback">Cambiar correo</button></form>
+    <p id="lintro">Te mando un enlace a tu correo y entras con un toque. Sin contraseñas, y tus cuentas quedan guardadas en tu cuenta, no solo en este celular.</p>
+    <form id="lform1"><input type="email" id="lmail" placeholder="tu correo" autocomplete="email" inputmode="email" required aria-label="Correo"><button type="submit" class="ok" id="lsend">Enviar enlace</button></form>
+    <form id="lform2" hidden><input type="text" id="lcode" placeholder="o escribe el código, si el correo trae uno" autocomplete="one-time-code" inputmode="numeric" maxlength="10" required aria-label="Código"><button type="submit" class="ok" id="lgo">Entrar</button><button type="button" id="lback">Cambiar correo</button></form>
     <p class="lerr" id="lerr" role="alert" hidden></p>
     <button type="button" class="lskip" id="lskip">Usar sin cuenta (se guarda solo en este dispositivo)</button>
   </div>
@@ -1698,10 +1698,12 @@ function cacheNubeCargar(){
 function modoLocal(){$("login").hidden=true;$("status").textContent="Guardado solo en este dispositivo · funciona sin internet";loadLocal();render();runFijos();revisarRecordatorio()}
 async function iniciarNube(){
   if(!window.Nube){modoLocal();return}
+  Nube.alIniciarSesion(ses=>{if(!nubeOn)conectarNube(ses)});
   let ses=null;try{ses=await Nube.sesion()}catch(x){}
   if(ses){conectarNube(ses);return}
+  const fallo=/error_(code|description)=/.test(location.hash)?"El enlace venció o ya se usó. Pide uno nuevo.":"";
   let sin="";try{sin=localStorage.getItem(SIN_CUENTA)||""}catch(x){}
-  if(sin==="1")modoLocal();else mostrarLogin();
+  if(sin==="1"&&!fallo)modoLocal();else{mostrarLogin();if(fallo){loginError(fallo);history.replaceState(null,"",location.pathname)}}
 }
 function conectarNube(ses){
   const a=Nube.almacenes(ses.user.id);store=a.store;cfgStore=a.cfgStore;nubeOn=true;
@@ -1716,7 +1718,7 @@ function mostrarLogin(){$("login").hidden=false;$("status").textContent="Sin ini
 function msgAuth(e){
   const m=String(e&&e.message||"").toLowerCase();
   if(e&&(e.status===429||/rate|seconds|too many/.test(m)))return "Pediste muchos códigos seguidos. Espera unos minutos e inténtalo otra vez.";
-  if(/invalid|expired|token/.test(m))return "Ese código no sirve o ya venció. Revisa que sea el último que te llegó.";
+  if(/invalid|expired|token/.test(m))return "Ese código no sirve o ya venció. Mejor usa el enlace del último correo.";
   if(/network|fetch|failed/.test(m)||!navigator.onLine)return "No hay conexión. Revisa tu internet e inténtalo otra vez.";
   return "Algo falló. Inténtalo otra vez.";
 }
@@ -1725,7 +1727,7 @@ $("lform1").onsubmit=async ev=>{ev.preventDefault();
   loginError("");$("lsend").disabled=true;
   const {error}=await Nube.enviarCodigo(loginMail).catch(e=>({error:e}));$("lsend").disabled=false;
   if(error){loginError(msgAuth(error));return}
-  $("lform1").hidden=true;$("lform2").hidden=false;$("lintro").textContent="Te mandé un código a "+loginMail+". Revisa también la carpeta de spam.";$("lcode").focus()};
+  $("lform1").hidden=true;$("lform2").hidden=false;$("lintro").textContent="Te mandé un enlace a "+loginMail+". Ábrelo desde este mismo celular y vuelve aquí. Si no llega, mira en spam.";$("lcode").focus()};
 $("lform2").onsubmit=async ev=>{ev.preventDefault();
   const code=$("lcode").value.replace(/\D/g,"");if(!code)return;
   loginError("");$("lgo").disabled=true;
@@ -1733,7 +1735,7 @@ $("lform2").onsubmit=async ev=>{ev.preventDefault();
   if(error||!data||!data.session){loginError(msgAuth(error));return}
   try{localStorage.removeItem(SIN_CUENTA)}catch(x){}
   conectarNube(data.session)};
-$("lback").onclick=()=>{$("lform2").hidden=true;$("lform1").hidden=false;$("lcode").value="";loginError("");$("lintro").textContent="Te mando un código de 6 números a tu correo. Sin contraseñas, y tus cuentas quedan guardadas en tu cuenta, no solo en este celular."};
+$("lback").onclick=()=>{$("lform2").hidden=true;$("lform1").hidden=false;$("lcode").value="";loginError("");$("lintro").textContent="Te mando un enlace a tu correo y entras con un toque. Sin contraseñas, y tus cuentas quedan guardadas en tu cuenta, no solo en este celular."};
 $("lskip").onclick=()=>{try{localStorage.setItem(SIN_CUENTA,"1")}catch(x){}modoLocal()};
 $("logout").onclick=async()=>{if(!confirm("¿Cerrar sesión? Tus cuentas siguen guardadas en la nube."))return;
   try{localStorage.removeItem(CACHE_MOV);localStorage.removeItem(CACHE_CFG)}catch(x){}
